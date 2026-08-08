@@ -9,14 +9,15 @@ create table if not exists public.medication_records (
   medicine text,
   dose_amount numeric,
   dose_unit text check (dose_unit in ('mcg', 'mg')),
+  frequency text,
   note text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
 
   constraint medication_details_match_type check (
-    (type = 'inhaled' and medicine is not null and dose_amount > 0 and dose_unit = 'mcg')
-    or (type = 'oral' and medicine is not null and dose_amount > 0 and dose_unit = 'mg')
-    or (type = 'behavior' and medicine is null and dose_amount is null and dose_unit is null)
+    (type = 'inhaled' and medicine is not null and dose_amount > 0 and dose_unit = 'mcg' and frequency is not null)
+    or (type = 'oral' and medicine is not null and dose_amount > 0 and dose_unit = 'mg' and frequency is not null)
+    or (type = 'behavior' and medicine is null and dose_amount is null and dose_unit is null and frequency is null)
   )
 );
 

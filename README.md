@@ -28,13 +28,19 @@ python3 -m http.server 8080
 - `type`：`inhaled`、`oral`、`behavior`
 - `medicine`：行为记录时为空
 - `dose_amount` + `dose_unit`：拆分存储，方便统计和校验
+- `frequency`：该条用药记录发生时采用的服药频率
 - `note`：可选备注
 - `user_id`：由登录用户自动写入；RLS 只允许配置的两位照护者访问，并让两人共享记录
 
 `total` 没有存进表，而是按事件实时统计，避免补录或删除后数字失真。
 
+### 为现有数据库加入 frequency
+
+如果数据库是在加入 `frequency` 之前创建的，请先在 Supabase **SQL Editor** 中运行一次
+`supabase/add_frequency.sql`，再部署新版网页。该脚本会为旧记录补上对应疗程阶段的频率。
+
 ## 当前边界
 
 - 离线时可以打开已缓存的界面，但新增记录仍需要网络连接到 Supabase。
-- 当前每个账号只能看到自己的记录；若需要两位照护者共享同一个小宝的数据，应增加 family / caregiver membership 表。
+- 当前只允许 schema 中列出的两位照护者登录，两人可以共同读取和维护小宝的全部记录。
 - 本项目用于记录，不代替医生意见或正式病历。

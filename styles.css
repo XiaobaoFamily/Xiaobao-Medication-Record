@@ -43,6 +43,7 @@ h2 { margin-bottom: 0; font: 700 1.6rem/1.2 Georgia, serif; letter-spacing: -0.0
 label > span:first-child, legend { display: block; margin-bottom: 8px; color: #39534f; font-size: 0.83rem; font-weight: 700; }
 input, select, textarea { width: 100%; border: 1px solid var(--line); border-radius: 12px; outline: none; background: #fbfcfb; color: var(--ink); }
 input, select { min-height: 48px; padding: 0 13px; }
+input[readonly] { background: var(--soft); color: var(--accent); font-weight: 750; }
 textarea { padding: 13px; resize: vertical; }
 input:focus, select:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(48, 95, 89, 0.12); }
 
@@ -102,6 +103,10 @@ fieldset { margin: 0 0 24px; padding: 0; border: 0; }
 .record-dose, .record-note { margin: 4px 0 0; color: var(--muted); font-size: 0.82rem; }
 .record-note { color: var(--ink); }
 .empty { padding: 40px 0; color: var(--muted); text-align: center; }
+.pagination { display: grid; grid-template-columns: 1fr auto 1fr; gap: 14px; align-items: center; margin-top: 20px; }
+.pagination span { color: var(--muted); font-size: 0.82rem; font-weight: 700; text-align: center; }
+.page-button { min-height: 42px; }
+.page-button:last-child { justify-self: stretch; }
 code { padding: 2px 6px; border-radius: 5px; background: var(--soft); }
 
 @media (max-width: 680px) {

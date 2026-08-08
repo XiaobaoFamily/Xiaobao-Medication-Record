@@ -30,13 +30,22 @@ const elements = {
   doseField: $("#dose-field"),
   doseAmount: $("#dose-amount"),
   doseUnit: $("#dose-unit"),
+  frequency: $("#frequency"),
+  frequencyField: $("#frequency-field"),
   note: $("#note"),
   saveButton: $("#save-button"),
   syncState: $("#sync-state"),
   records: $("#records"),
   empty: $("#empty-state"),
   refresh: $("#refresh"),
+  pagination: $("#pagination"),
+  previousPage: $("#previous-page"),
+  nextPage: $("#next-page"),
+  pageStatus: $("#page-status"),
 };
+
+const PAGE_SIZE = 10;
+const CHICAGO_TIME_ZONE = "America/Chicago";
 
 const typeMeta = {
   inhaled: { label: "吸入药", icon: "吸", className: "inhaled" },
@@ -82,10 +91,34 @@ function selectedType() {
   return new FormData(elements.recordForm).get("type");
 }
 
+function chicagoDateKey(date) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: CHICAGO_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
+function frequencyFor(type, dateKey) {
+  if (type === "behavior") return null;
+  if (type === "inhaled") return dateKey <= "2026-07-30" ? "每天2次" : "每天3次";
+  return dateKey <= "2026-08-02" ? "隔天1次" : "每3天1次";
+}
+
+function updateFrequencyPreview() {
+  const type = selectedType();
+  const dateKey = elements.occurredAt.value.slice(0, 10);
+  elements.frequency.value = frequencyFor(type, dateKey) ?? "";
+}
+
 function applyTypeDefaults(type) {
   const isBehavior = type === "behavior";
   show(elements.medicineField, !isBehavior);
   show(elements.doseField, !isBehavior);
+  show(elements.frequencyField, !isBehavior);
   elements.medicine.required = !isBehavior;
   elements.doseAmount.required = !isBehavior;
 
@@ -101,12 +134,15 @@ function applyTypeDefaults(type) {
     elements.medicine.value = "";
     elements.doseAmount.value = "";
   }
+  updateFrequencyPreview();
 }
 
 elements.occurredAt.value = localDateTimeValue();
 elements.recordForm?.addEventListener("change", (event) => {
   if (event.target.name === "type") applyTypeDefaults(event.target.value);
+  if (event.target.name === "occurred_at") updateFrequencyPreview();
 });
+updateFrequencyPreview();
 
 if (!configured) {
   show(elements.setup, true);
@@ -114,6 +150,8 @@ if (!configured) {
   const supabase = createClient(config.SUPABASE_URL, config.SUPABASE_ANON_KEY, {
     auth: { persistSession: true, detectSessionInUrl: true },
   });
+  let allRecords = [];
+  let currentPage = 1;
 
   async function renderSession(session) {
     if (session && !allowedUserIds.has(session.user.id)) {
@@ -139,9 +177,8 @@ if (!configured) {
     const [recentResult, todayResult, allTimeInhaledResult, allTimeOralResult] = await Promise.all([
       supabase
         .from("medication_records")
-        .select("id, occurred_at, type, medicine, dose_amount, dose_unit, note")
-        .order("occurred_at", { ascending: false })
-        .limit(50),
+        .select("id, occurred_at, type, medicine, dose_amount, dose_unit, frequency, note")
+        .order("occurred_at", { ascending: false }),
       supabase
         .from("medication_records")
         .select("type")
@@ -167,7 +204,8 @@ if (!configured) {
       return;
     }
 
-    renderRecords(recentResult.data ?? []);
+    allRecords = recentResult.data ?? [];
+    renderRecordsPage();
     renderTotals(
       todayResult.data ?? [],
       allTimeInhaledResult.count ?? 0,
@@ -189,7 +227,37 @@ if (!configured) {
     $("#all-time-oral-total").textContent = allTimeOral;
   }
 
-  function renderRecords(rows) {
+  function dailyOccurrenceNumbers(rows) {
+    const counts = new Map();
+    const occurrenceById = new Map();
+    const chronologicalRows = [...rows].sort(
+      (left, right) => new Date(left.occurred_at) - new Date(right.occurred_at),
+    );
+
+    for (const row of chronologicalRows) {
+      const dateKey = chicagoDateKey(new Date(row.occurred_at));
+      const groupKey = `${dateKey}:${row.type}`;
+      const occurrence = (counts.get(groupKey) ?? 0) + 1;
+      counts.set(groupKey, occurrence);
+      occurrenceById.set(row.id, occurrence);
+    }
+    return occurrenceById;
+  }
+
+  function renderRecordsPage() {
+    const totalPages = Math.max(1, Math.ceil(allRecords.length / PAGE_SIZE));
+    currentPage = Math.min(currentPage, totalPages);
+    const start = (currentPage - 1) * PAGE_SIZE;
+    const pageRows = allRecords.slice(start, start + PAGE_SIZE);
+    renderRecords(pageRows, dailyOccurrenceNumbers(allRecords));
+
+    show(elements.pagination, allRecords.length > PAGE_SIZE);
+    elements.pageStatus.textContent = `第 ${currentPage} / ${totalPages} 页`;
+    elements.previousPage.disabled = currentPage === 1;
+    elements.nextPage.disabled = currentPage === totalPages;
+  }
+
+  function renderRecords(rows, occurrenceById) {
     elements.records.replaceChildren();
     show(elements.empty, rows.length === 0);
 
@@ -206,7 +274,7 @@ if (!configured) {
 
       article.dataset.type = meta.className;
       icon.textContent = meta.icon;
-      title.textContent = row.type === "behavior" ? meta.label : row.medicine;
+      title.textContent = meta.label;
       const eventDate = new Date(row.occurred_at);
       time.dateTime = row.occurred_at;
       time.textContent = new Intl.DateTimeFormat("zh-CN", {
@@ -216,7 +284,14 @@ if (!configured) {
         minute: "2-digit",
       }).format(eventDate);
 
-      dose.textContent = row.type === "behavior" ? "行为记录" : `${meta.label} · ${Number(row.dose_amount)} ${row.dose_unit}`;
+      const occurrence = occurrenceById.get(row.id);
+      if (row.type === "behavior") {
+        dose.textContent = `当天第 ${occurrence} 条行为记录`;
+      } else {
+        const dateKey = chicagoDateKey(eventDate);
+        const frequency = row.frequency ?? frequencyFor(row.type, dateKey);
+        dose.textContent = `当天第 ${occurrence} 次 · 频率：${frequency}`;
+      }
       note.textContent = row.note ?? "";
       show(note, Boolean(row.note));
 
@@ -310,6 +385,7 @@ if (!configured) {
       medicine: isBehavior ? null : elements.medicine.value.trim(),
       dose_amount: isBehavior ? null : Number(elements.doseAmount.value),
       dose_unit: isBehavior ? null : elements.doseUnit.value,
+      frequency: isBehavior ? null : elements.frequency.value,
       note: elements.note.value.trim() || null,
     };
     const { error } = await supabase.from("medication_records").insert(payload);
@@ -323,11 +399,23 @@ if (!configured) {
 
     elements.note.value = "";
     elements.occurredAt.value = localDateTimeValue();
+    updateFrequencyPreview();
     setMessage(elements.formMessage, "已保存");
+    currentPage = 1;
     await loadRecords();
   });
 
   elements.refresh.addEventListener("click", loadRecords);
+  elements.previousPage.addEventListener("click", () => {
+    if (currentPage === 1) return;
+    currentPage -= 1;
+    renderRecordsPage();
+  });
+  elements.nextPage.addEventListener("click", () => {
+    if (currentPage * PAGE_SIZE >= allRecords.length) return;
+    currentPage += 1;
+    renderRecordsPage();
+  });
   elements.signOut.addEventListener("click", async () => {
     await supabase.auth.signOut();
   });

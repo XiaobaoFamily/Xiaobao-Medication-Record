@@ -144,6 +144,10 @@
                   </select>
                 </span>
               </label>
+              <label id="frequency-field">
+                <span>服药频率</span>
+                <input id="frequency" name="frequency" type="text" readonly />
+              </label>
               <label class="wide">
                 <span>备注 <small>（可选）</small></span>
                 <textarea id="note" name="note" rows="3" placeholder="例如：咳嗽、睡前、情绪变化……"></textarea>
@@ -164,6 +168,11 @@
           </div>
           <div id="records" class="records" aria-live="polite"></div>
           <p id="empty-state" class="empty hidden">还没有记录。保存第一条事件后，它会出现在这里。</p>
+          <nav id="pagination" class="pagination hidden" aria-label="最近记录分页">
+            <button id="previous-page" class="secondary page-button" type="button">上一页</button>
+            <span id="page-status" aria-live="polite">第 1 / 1 页</span>
+            <button id="next-page" class="secondary page-button" type="button">下一页</button>
+          </nav>
         </section>
       </div>
     </main>
