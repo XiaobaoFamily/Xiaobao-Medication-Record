@@ -62,6 +62,16 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); box-sha
 .metric-accent { border-color: var(--accent); background: var(--accent); color: white; }
 .metric-accent span, .metric-accent small { color: rgba(255,255,255,0.72); }
 
+.all-time-summary { display: grid; grid-template-columns: 1.4fr repeat(2, 1fr); gap: 12px; align-items: stretch; margin: 0 0 18px; }
+.all-time-heading, .total-metric { padding: 18px 20px; border: 1px solid var(--line); border-radius: 20px; background: rgba(255,255,255,0.72); }
+.all-time-heading { display: flex; flex-direction: column; justify-content: center; }
+.all-time-heading .eyebrow { margin-bottom: 5px; }
+.all-time-heading h2 { font-size: 1.35rem; }
+.total-metric span { display: block; color: var(--muted); font-size: 0.78rem; font-weight: 700; }
+.metric-note { display: inline-block; margin: 6px 0 0; padding: 3px 7px; border-radius: 99px; background: var(--warm); color: #795a2e; font-size: 0.68rem; font-weight: 800; }
+.total-metric strong { display: inline-block; margin: 10px 4px 0 0; font: 700 2rem/1 Georgia, serif; }
+.total-metric small { color: var(--muted); }
+
 .entry-card { margin-bottom: 44px; }
 .sync-state { padding: 7px 11px; border-radius: 99px; background: var(--soft); color: var(--accent); font-size: 0.72rem; font-weight: 800; }
 .record-form { margin-top: 28px; }
@@ -99,6 +109,8 @@ code { padding: 2px 6px; border-radius: 5px; background: var(--soft); }
   .summary { grid-template-columns: repeat(2, 1fr); }
   .metric { min-height: 112px; }
   .metric-accent { grid-column: span 2; }
+  .all-time-summary { grid-template-columns: repeat(2, 1fr); }
+  .all-time-heading { grid-column: 1 / -1; padding: 14px 18px; }
   .form-grid { grid-template-columns: 1fr; }
   .wide { grid-column: auto; }
   .card { border-radius: 20px; }

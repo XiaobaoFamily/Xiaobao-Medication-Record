@@ -136,7 +136,7 @@ if (!configured) {
 
   async function loadRecords() {
     elements.syncState.textContent = "同步中…";
-    const [recentResult, todayResult] = await Promise.all([
+    const [recentResult, todayResult, allTimeInhaledResult, allTimeOralResult] = await Promise.all([
       supabase
         .from("medication_records")
         .select("id, occurred_at, type, medicine, dose_amount, dose_unit, note")
@@ -146,9 +146,21 @@ if (!configured) {
         .from("medication_records")
         .select("type")
         .gte("occurred_at", startOfTodayIso()),
+      supabase
+        .from("medication_records")
+        .select("*", { count: "exact", head: true })
+        .eq("type", "inhaled"),
+      supabase
+        .from("medication_records")
+        .select("*", { count: "exact", head: true })
+        .eq("type", "oral"),
     ]);
 
-    const error = recentResult.error ?? todayResult.error;
+    const error =
+      recentResult.error ??
+      todayResult.error ??
+      allTimeInhaledResult.error ??
+      allTimeOralResult.error;
     if (error) {
       elements.syncState.textContent = "同步失败";
       setMessage(elements.formMessage, `读取失败：${error.message}`, true);
@@ -156,11 +168,15 @@ if (!configured) {
     }
 
     renderRecords(recentResult.data ?? []);
-    renderTotals(todayResult.data ?? []);
+    renderTotals(
+      todayResult.data ?? [],
+      allTimeInhaledResult.count ?? 0,
+      allTimeOralResult.count ?? 0,
+    );
     elements.syncState.textContent = "已同步";
   }
 
-  function renderTotals(rows) {
+  function renderTotals(rows, allTimeInhaled, allTimeOral) {
     const counts = rows.reduce(
       (result, row) => ({ ...result, [row.type]: result[row.type] + 1 }),
       { inhaled: 0, oral: 0, behavior: 0 },
@@ -169,6 +185,8 @@ if (!configured) {
     $("#inhaled-total").textContent = counts.inhaled;
     $("#oral-total").textContent = counts.oral;
     $("#behavior-total").textContent = counts.behavior;
+    $("#all-time-inhaled-total").textContent = allTimeInhaled;
+    $("#all-time-oral-total").textContent = allTimeOral;
   }
 
   function renderRecords(rows) {
