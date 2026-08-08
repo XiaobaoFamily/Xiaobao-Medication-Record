@@ -14,7 +14,14 @@ const elements = {
   app: $("#app"),
   signOut: $("#sign-out"),
   loginForm: $("#login-form"),
+  password: $("#password"),
+  resetPassword: $("#reset-password"),
   authMessage: $("#auth-message"),
+  passwordPanel: $("#password-panel"),
+  passwordForm: $("#password-form"),
+  newPassword: $("#new-password"),
+  confirmPassword: $("#confirm-password"),
+  passwordMessage: $("#password-message"),
   recordForm: $("#record-form"),
   formMessage: $("#form-message"),
   occurredAt: $("#occurred-at"),
@@ -41,6 +48,9 @@ const allowedUserIds = new Set([
   "f95b14d7-4881-4433-8442-a401831544e6",
   "45d59985-1e2c-424c-841a-18857c9a21a8",
 ]);
+
+const authLinkType = new URLSearchParams(location.hash.slice(1)).get("type");
+let passwordRecovery = authLinkType === "recovery" || authLinkType === "invite";
 
 $("#today-label").textContent = new Intl.DateTimeFormat("zh-CN", {
   month: "long",
@@ -116,10 +126,12 @@ if (!configured) {
     }
 
     const signedIn = Boolean(session);
+    const settingPassword = signedIn && passwordRecovery;
     show(elements.auth, !signedIn);
-    show(elements.app, signedIn);
-    show(elements.signOut, signedIn);
-    if (signedIn) await loadRecords();
+    show(elements.passwordPanel, settingPassword);
+    show(elements.app, signedIn && !settingPassword);
+    show(elements.signOut, signedIn && !settingPassword);
+    if (signedIn && !settingPassword) await loadRecords();
   }
 
   async function loadRecords() {
@@ -208,20 +220,62 @@ if (!configured) {
 
   elements.loginForm.addEventListener("submit", async (event) => {
     event.preventDefault();
-    const email = new FormData(elements.loginForm).get("email");
-    setMessage(elements.authMessage, "正在发送…");
-    const { error } = await supabase.auth.signInWithOtp({
+    const formData = new FormData(elements.loginForm);
+    const email = formData.get("email");
+    const password = formData.get("password");
+    setMessage(elements.authMessage, "正在登录…");
+    const { error } = await supabase.auth.signInWithPassword({
       email,
-      options: {
-        shouldCreateUser: false,
-        emailRedirectTo: `${location.origin}${location.pathname}`,
-      },
+      password,
     });
     setMessage(
       elements.authMessage,
-      error ? `发送失败：${error.message}` : "登录链接已发送，请检查邮箱。",
+      error ? "登录失败，请检查邮箱和密码。" : "登录成功。",
       Boolean(error),
     );
+  });
+
+  elements.resetPassword.addEventListener("click", async () => {
+    const email = $("#email").value.trim();
+    if (!email || !$("#email").checkValidity()) {
+      setMessage(elements.authMessage, "请先填写正确的邮箱地址。", true);
+      $("#email").focus();
+      return;
+    }
+
+    elements.resetPassword.disabled = true;
+    setMessage(elements.authMessage, "正在发送密码设置邮件…");
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${location.origin}${location.pathname}`,
+    });
+    elements.resetPassword.disabled = false;
+    setMessage(
+      elements.authMessage,
+      error ? `发送失败：${error.message}` : "密码设置邮件已发送，请检查邮箱。",
+      Boolean(error),
+    );
+  });
+
+  elements.passwordForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (elements.newPassword.value !== elements.confirmPassword.value) {
+      setMessage(elements.passwordMessage, "两次输入的密码不一致。", true);
+      return;
+    }
+
+    setMessage(elements.passwordMessage, "正在保存…");
+    const { error } = await supabase.auth.updateUser({ password: elements.newPassword.value });
+    if (error) {
+      setMessage(elements.passwordMessage, `保存失败：${error.message}`, true);
+      return;
+    }
+
+    passwordRecovery = false;
+    history.replaceState({}, document.title, `${location.pathname}${location.search}`);
+    elements.passwordForm.reset();
+    const { data } = await supabase.auth.getSession();
+    await renderSession(data.session);
+    setMessage(elements.formMessage, "密码已设置。以后可以直接使用邮箱和密码登录。");
   });
 
   elements.recordForm.addEventListener("submit", async (event) => {
@@ -260,11 +314,12 @@ if (!configured) {
     await supabase.auth.signOut();
   });
 
-  const { data } = await supabase.auth.getSession();
-  await renderSession(data.session);
-  supabase.auth.onAuthStateChange((_event, session) => {
+  supabase.auth.onAuthStateChange((event, session) => {
+    if (event === "PASSWORD_RECOVERY") passwordRecovery = true;
     window.setTimeout(() => renderSession(session), 0);
   });
+  const { data } = await supabase.auth.getSession();
+  await renderSession(data.session);
 }
 
 if ("serviceWorker" in navigator) {

@@ -30,15 +30,38 @@
       <section id="auth-panel" class="card auth-card hidden" aria-labelledby="auth-title">
         <p class="eyebrow">PRIVATE &amp; SECURE</p>
         <h2 id="auth-title">登录后开始记录</h2>
-        <p class="muted">输入邮箱，我们会发送一次性登录链接。无需密码。</p>
+        <p class="muted">使用已授权的邮箱和密码登录。首次使用请先设置密码。</p>
         <form id="login-form" class="stack">
           <label>
             <span>邮箱</span>
             <input id="email" name="email" type="email" autocomplete="email" placeholder="you@example.com" required />
           </label>
-          <button class="primary" type="submit">发送登录链接</button>
+          <label>
+            <span>密码</span>
+            <input id="password" name="password" type="password" autocomplete="current-password" minlength="8" required />
+          </label>
+          <button class="primary" type="submit">登录</button>
+          <button id="reset-password" class="secondary" type="button">首次设置 / 忘记密码</button>
         </form>
         <p id="auth-message" class="form-message" role="status"></p>
+      </section>
+
+      <section id="password-panel" class="card auth-card hidden" aria-labelledby="password-title">
+        <p class="eyebrow">SET PASSWORD</p>
+        <h2 id="password-title">设置新密码</h2>
+        <p class="muted">请设置至少 8 位密码。保存后即可在主屏幕 App 中直接登录。</p>
+        <form id="password-form" class="stack">
+          <label>
+            <span>新密码</span>
+            <input id="new-password" type="password" autocomplete="new-password" minlength="8" required />
+          </label>
+          <label>
+            <span>再次输入</span>
+            <input id="confirm-password" type="password" autocomplete="new-password" minlength="8" required />
+          </label>
+          <button class="primary" type="submit">保存密码</button>
+        </form>
+        <p id="password-message" class="form-message" role="status"></p>
       </section>
 
       <div id="app" class="hidden">

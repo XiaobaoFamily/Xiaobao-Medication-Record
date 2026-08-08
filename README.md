@@ -1,6 +1,6 @@
 # 小宝用药记录 PWA
 
-一个无需构建步骤、可以直接部署到 GitHub Pages 的静态 PWA。数据由 Supabase 保存，登录使用邮箱 Magic Link。
+一个无需构建步骤、可以直接部署到 GitHub Pages 的静态 PWA。数据由 Supabase 保存，登录使用邮箱和密码。
 
 ## 首次设置
 
@@ -20,7 +20,7 @@ PWA 和 ES modules 需要通过 HTTP 打开，不能直接双击 `index.html`。
 python3 -m http.server 8080
 ```
 
-然后访问 `http://localhost:8080`。如需测试本地 Magic Link，也要把这个地址加入 Supabase Redirect URLs。
+然后访问 `http://localhost:8080`。如需测试密码设置邮件，也要把这个地址加入 Supabase Redirect URLs。
 
 ## 数据设计
 
@@ -29,7 +29,7 @@ python3 -m http.server 8080
 - `medicine`：行为记录时为空
 - `dose_amount` + `dose_unit`：拆分存储，方便统计和校验
 - `note`：可选备注
-- `user_id`：由登录用户自动写入，用 RLS 保证只能访问自己的记录
+- `user_id`：由登录用户自动写入；RLS 只允许配置的两位照护者访问，并让两人共享记录
 
 `total` 没有存进表，而是按事件实时统计，避免补录或删除后数字失真。
 

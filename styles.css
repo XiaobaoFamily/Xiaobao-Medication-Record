@@ -48,6 +48,8 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); box-sha
 
 .primary { min-height: 50px; padding: 0 22px; border: 0; border-radius: 13px; background: var(--accent); color: white; font-weight: 800; box-shadow: 0 8px 20px rgba(48, 95, 89, 0.2); }
 .primary:hover { background: var(--accent-strong); }
+.secondary { min-height: 46px; padding: 0 20px; border: 1px solid var(--line); border-radius: 13px; background: white; color: var(--accent); font-weight: 800; }
+.secondary:hover { background: var(--soft); }
 .text-button, .delete-button { padding: 8px 4px; border: 0; background: transparent; color: var(--accent); font-weight: 750; }
 .delete-button { color: #9b4b45; font-size: 0.78rem; opacity: 0; transition: opacity 160ms ease; }
 .record-row:hover .delete-button, .delete-button:focus { opacity: 1; }
