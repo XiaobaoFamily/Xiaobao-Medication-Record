@@ -37,6 +37,11 @@ const typeMeta = {
   behavior: { label: "小宝行为", icon: "记", className: "behavior" },
 };
 
+const allowedUserIds = new Set([
+  "f95b14d7-4881-4433-8442-a401831544e6",
+  "45d59985-1e2c-424c-841a-18857c9a21a8",
+]);
+
 $("#today-label").textContent = new Intl.DateTimeFormat("zh-CN", {
   month: "long",
   day: "numeric",
@@ -101,6 +106,15 @@ if (!configured) {
   });
 
   async function renderSession(session) {
+    if (session && !allowedUserIds.has(session.user.id)) {
+      await supabase.auth.signOut();
+      show(elements.auth, true);
+      show(elements.app, false);
+      show(elements.signOut, false);
+      setMessage(elements.authMessage, "这个账号没有访问权限。", true);
+      return;
+    }
+
     const signedIn = Boolean(session);
     show(elements.auth, !signedIn);
     show(elements.app, signedIn);
@@ -198,7 +212,10 @@ if (!configured) {
     setMessage(elements.authMessage, "正在发送…");
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: `${location.origin}${location.pathname}` },
+      options: {
+        shouldCreateUser: false,
+        emailRedirectTo: `${location.origin}${location.pathname}`,
+      },
     });
     setMessage(
       elements.authMessage,

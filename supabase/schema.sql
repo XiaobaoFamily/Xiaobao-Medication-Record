@@ -43,26 +43,62 @@ for each row execute function public.set_updated_at();
 alter table public.medication_records enable row level security;
 
 drop policy if exists "Users can read own records" on public.medication_records;
-create policy "Users can read own records"
+drop policy if exists "Users can insert own records" on public.medication_records;
+drop policy if exists "Users can update own records" on public.medication_records;
+drop policy if exists "Users can delete own records" on public.medication_records;
+drop policy if exists "Caregivers can read shared records" on public.medication_records;
+drop policy if exists "Caregivers can insert shared records" on public.medication_records;
+drop policy if exists "Caregivers can update shared records" on public.medication_records;
+drop policy if exists "Caregivers can delete shared records" on public.medication_records;
+
+-- 只有这两个 Supabase Auth 用户可以访问；两人共享全部记录。
+create policy "Caregivers can read shared records"
 on public.medication_records for select
 to authenticated
-using ((select auth.uid()) = user_id);
+using (
+  (select auth.uid()) in (
+    'f95b14d7-4881-4433-8442-a401831544e6'::uuid,
+    '45d59985-1e2c-424c-841a-18857c9a21a8'::uuid
+  )
+);
 
-drop policy if exists "Users can insert own records" on public.medication_records;
-create policy "Users can insert own records"
+create policy "Caregivers can insert shared records"
 on public.medication_records for insert
 to authenticated
-with check ((select auth.uid()) = user_id);
+with check (
+  (select auth.uid()) in (
+    'f95b14d7-4881-4433-8442-a401831544e6'::uuid,
+    '45d59985-1e2c-424c-841a-18857c9a21a8'::uuid
+  )
+  and (select auth.uid()) = user_id
+);
 
-drop policy if exists "Users can update own records" on public.medication_records;
-create policy "Users can update own records"
+create policy "Caregivers can update shared records"
 on public.medication_records for update
 to authenticated
-using ((select auth.uid()) = user_id)
-with check ((select auth.uid()) = user_id);
+using (
+  (select auth.uid()) in (
+    'f95b14d7-4881-4433-8442-a401831544e6'::uuid,
+    '45d59985-1e2c-424c-841a-18857c9a21a8'::uuid
+  )
+)
+with check (
+  (select auth.uid()) in (
+    'f95b14d7-4881-4433-8442-a401831544e6'::uuid,
+    '45d59985-1e2c-424c-841a-18857c9a21a8'::uuid
+  )
+  and user_id in (
+    'f95b14d7-4881-4433-8442-a401831544e6'::uuid,
+    '45d59985-1e2c-424c-841a-18857c9a21a8'::uuid
+  )
+);
 
-drop policy if exists "Users can delete own records" on public.medication_records;
-create policy "Users can delete own records"
+create policy "Caregivers can delete shared records"
 on public.medication_records for delete
 to authenticated
-using ((select auth.uid()) = user_id);
+using (
+  (select auth.uid()) in (
+    'f95b14d7-4881-4433-8442-a401831544e6'::uuid,
+    '45d59985-1e2c-424c-841a-18857c9a21a8'::uuid
+  )
+);
