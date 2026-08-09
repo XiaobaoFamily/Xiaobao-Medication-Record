@@ -32,6 +32,10 @@ const elements = {
   doseUnit: $("#dose-unit"),
   frequency: $("#frequency"),
   frequencyField: $("#frequency-field"),
+  bowelMovement: $("#bowel-movement"),
+  bowelMovementField: $("#bowel-movement-field"),
+  urineAmount: $("#urine-amount"),
+  urineAmountField: $("#urine-amount-field"),
   note: $("#note"),
   saveButton: $("#save-button"),
   syncState: $("#sync-state"),
@@ -51,6 +55,13 @@ const typeMeta = {
   inhaled: { label: "吸入药", icon: "吸", className: "inhaled" },
   oral: { label: "口服药", icon: "服", className: "oral" },
   behavior: { label: "小宝行为", icon: "记", className: "behavior" },
+  brushing: { label: "刷牙", icon: "牙", className: "brushing" },
+  elimination: { label: "排泄", icon: "排", className: "elimination" },
+};
+
+const frequencyOptions = {
+  inhaled: ["每天1次", "每天2次", "每天3次", "每天4次"],
+  oral: ["每天1次", "隔天1次", "每3天1次"],
 };
 
 const allowedUserIds = new Set([
@@ -103,7 +114,7 @@ function chicagoDateKey(date) {
 }
 
 function frequencyFor(type, dateKey) {
-  if (type === "behavior") return null;
+  if (!frequencyOptions[type]) return null;
   if (type === "inhaled") return dateKey <= "2026-07-30" ? "每天2次" : "每天3次";
   return dateKey <= "2026-08-02" ? "隔天1次" : "每3天1次";
 }
@@ -111,16 +122,31 @@ function frequencyFor(type, dateKey) {
 function updateFrequencyPreview() {
   const type = selectedType();
   const dateKey = elements.occurredAt.value.slice(0, 10);
-  elements.frequency.value = frequencyFor(type, dateKey) ?? "";
+  const options = frequencyOptions[type] ?? [];
+  elements.frequency.replaceChildren(
+    ...options.map((value) => {
+      const option = document.createElement("option");
+      option.value = value;
+      option.textContent = value;
+      return option;
+    }),
+  );
+  elements.frequency.value = frequencyFor(type, dateKey) ?? options[0] ?? "";
 }
 
 function applyTypeDefaults(type) {
-  const isBehavior = type === "behavior";
-  show(elements.medicineField, !isBehavior);
-  show(elements.doseField, !isBehavior);
-  show(elements.frequencyField, !isBehavior);
-  elements.medicine.required = !isBehavior;
-  elements.doseAmount.required = !isBehavior;
+  const isMedication = type === "inhaled" || type === "oral";
+  const isElimination = type === "elimination";
+  show(elements.medicineField, isMedication);
+  show(elements.doseField, isMedication);
+  show(elements.frequencyField, isMedication);
+  show(elements.bowelMovementField, isElimination);
+  show(elements.urineAmountField, isElimination);
+  elements.medicine.required = isMedication;
+  elements.doseAmount.required = isMedication;
+  elements.frequency.required = isMedication;
+  elements.bowelMovement.required = isElimination;
+  elements.urineAmount.required = isElimination;
 
   if (type === "inhaled") {
     elements.medicine.value = "Fluticasone";
@@ -177,7 +203,7 @@ if (!configured) {
     const [recentResult, todayResult, allTimeInhaledResult, allTimeOralResult] = await Promise.all([
       supabase
         .from("medication_records")
-        .select("id, occurred_at, type, medicine, dose_amount, dose_unit, frequency, note")
+        .select("id, occurred_at, type, medicine, dose_amount, dose_unit, frequency, bowel_movement, urine_amount, note")
         .order("occurred_at", { ascending: false }),
       supabase
         .from("medication_records")
@@ -211,20 +237,85 @@ if (!configured) {
       allTimeInhaledResult.count ?? 0,
       allTimeOralResult.count ?? 0,
     );
+    renderOralReminder(allRecords);
     elements.syncState.textContent = "已同步";
   }
 
   function renderTotals(rows, allTimeInhaled, allTimeOral) {
-    const counts = rows.reduce(
-      (result, row) => ({ ...result, [row.type]: result[row.type] + 1 }),
-      { inhaled: 0, oral: 0, behavior: 0 },
-    );
+    const counts = rows.reduce((result, row) => {
+      result[row.type] = (result[row.type] ?? 0) + 1;
+      return result;
+    }, { inhaled: 0, oral: 0, behavior: 0, brushing: 0, elimination: 0 });
     $("#medicine-total").textContent = counts.inhaled + counts.oral;
     $("#inhaled-total").textContent = counts.inhaled;
     $("#oral-total").textContent = counts.oral;
     $("#behavior-total").textContent = counts.behavior;
     $("#all-time-inhaled-total").textContent = allTimeInhaled;
     $("#all-time-oral-total").textContent = allTimeOral;
+  }
+
+  function addCalendarDays(dateKey, days) {
+    const [year, month, day] = dateKey.split("-").map(Number);
+    const result = new Date(Date.UTC(year, month - 1, day + days));
+    return result.toISOString().slice(0, 10);
+  }
+
+  function formatDateKey(dateKey) {
+    const [year, month, day] = dateKey.split("-").map(Number);
+    return new Intl.DateTimeFormat("zh-CN", { month: "numeric", day: "numeric" }).format(
+      new Date(Date.UTC(year, month - 1, day, 12)),
+    );
+  }
+
+  function oralIntervalDays(frequency) {
+    if (frequency === "每天1次") return 1;
+    if (frequency === "隔天1次") return 2;
+    if (frequency === "每3天1次") return 3;
+    return null;
+  }
+
+  function renderOralReminder(rows) {
+    const card = $("#oral-reminder-card");
+    const title = $("#oral-reminder");
+    const detail = $("#oral-reminder-detail");
+    const latestOral = rows.find((row) => row.type === "oral");
+
+    if (!latestOral) {
+      card.dataset.status = "neutral";
+      title.textContent = "暂无服药计划";
+      detail.textContent = "记录一次口服药后，这里会自动计算提醒";
+      return;
+    }
+
+    const todayKey = chicagoDateKey(new Date());
+    const lastDoseKey = chicagoDateKey(new Date(latestOral.occurred_at));
+    const frequency = latestOral.frequency ?? frequencyFor("oral", lastDoseKey);
+    const intervalDays = oralIntervalDays(frequency);
+
+    if (lastDoseKey === todayKey) {
+      card.dataset.status = "complete";
+      title.textContent = "今日已服";
+      detail.textContent = `当前频率：${frequency}`;
+      return;
+    }
+
+    if (!intervalDays) {
+      card.dataset.status = "neutral";
+      title.textContent = "请确认今日安排";
+      detail.textContent = `当前频率：${frequency}`;
+      return;
+    }
+
+    const nextDoseKey = addCalendarDays(lastDoseKey, intervalDays);
+    if (todayKey >= nextDoseKey) {
+      card.dataset.status = "due";
+      title.textContent = "今天需要口服药";
+      detail.textContent = `当前频率：${frequency} · 上次 ${formatDateKey(lastDoseKey)}`;
+    } else {
+      card.dataset.status = "upcoming";
+      title.textContent = "今天不需要口服药";
+      detail.textContent = `当前频率：${frequency} · 下次预计 ${formatDateKey(nextDoseKey)}`;
+    }
   }
 
   function dailyOccurrenceNumbers(rows) {
@@ -287,6 +378,11 @@ if (!configured) {
       const occurrence = occurrenceById.get(row.id);
       if (row.type === "behavior") {
         dose.textContent = `当天第 ${occurrence} 条行为记录`;
+      } else if (row.type === "brushing") {
+        dose.textContent = `当天第 ${occurrence} 次刷牙`;
+      } else if (row.type === "elimination") {
+        const bowelText = row.bowel_movement ? "有" : "没有";
+        dose.textContent = `当天第 ${occurrence} 次 · 大便：${bowelText} · 小便：${row.urine_amount}次`;
       } else {
         const dateKey = chicagoDateKey(eventDate);
         const frequency = row.frequency ?? frequencyFor(row.type, dateKey);
@@ -374,7 +470,8 @@ if (!configured) {
   elements.recordForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     const type = selectedType();
-    const isBehavior = type === "behavior";
+    const isMedication = type === "inhaled" || type === "oral";
+    const isElimination = type === "elimination";
     elements.saveButton.disabled = true;
     elements.saveButton.textContent = "保存中…";
     setMessage(elements.formMessage, "");
@@ -382,10 +479,12 @@ if (!configured) {
     const payload = {
       occurred_at: new Date(elements.occurredAt.value).toISOString(),
       type,
-      medicine: isBehavior ? null : elements.medicine.value.trim(),
-      dose_amount: isBehavior ? null : Number(elements.doseAmount.value),
-      dose_unit: isBehavior ? null : elements.doseUnit.value,
-      frequency: isBehavior ? null : elements.frequency.value,
+      medicine: isMedication ? elements.medicine.value.trim() : null,
+      dose_amount: isMedication ? Number(elements.doseAmount.value) : null,
+      dose_unit: isMedication ? elements.doseUnit.value : null,
+      frequency: isMedication ? elements.frequency.value : null,
+      bowel_movement: isElimination ? elements.bowelMovement.value === "true" : null,
+      urine_amount: isElimination ? Number(elements.urineAmount.value) : null,
       note: elements.note.value.trim() || null,
     };
     const { error } = await supabase.from("medication_records").insert(payload);
@@ -398,6 +497,8 @@ if (!configured) {
     }
 
     elements.note.value = "";
+    elements.bowelMovement.value = "false";
+    elements.urineAmount.value = "1";
     elements.occurredAt.value = localDateTimeValue();
     updateFrequencyPreview();
     setMessage(elements.formMessage, "已保存");

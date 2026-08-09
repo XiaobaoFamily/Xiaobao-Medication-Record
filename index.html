@@ -86,6 +86,11 @@
             <strong id="behavior-total">0</strong>
             <small>次</small>
           </article>
+          <article id="oral-reminder-card" class="metric reminder-metric" data-status="neutral">
+            <span>今日口服药提醒</span>
+            <strong id="oral-reminder">计算中…</strong>
+            <small id="oral-reminder-detail">正在读取最近的口服药记录</small>
+          </article>
         </section>
 
         <section class="all-time-summary" aria-label="历史累计">
@@ -122,6 +127,8 @@
                 <label><input type="radio" name="type" value="inhaled" checked /><span>吸入药</span></label>
                 <label><input type="radio" name="type" value="oral" /><span>口服药</span></label>
                 <label><input type="radio" name="type" value="behavior" /><span>小宝行为</span></label>
+                <label><input type="radio" name="type" value="brushing" /><span>刷牙</span></label>
+                <label><input type="radio" name="type" value="elimination" /><span>排泄</span></label>
               </div>
             </fieldset>
 
@@ -146,7 +153,18 @@
               </label>
               <label id="frequency-field">
                 <span>服药频率</span>
-                <input id="frequency" name="frequency" type="text" readonly />
+                <select id="frequency" name="frequency"></select>
+              </label>
+              <label id="bowel-movement-field" class="hidden">
+                <span>大便</span>
+                <select id="bowel-movement" name="bowel_movement">
+                  <option value="false">没有</option>
+                  <option value="true">有</option>
+                </select>
+              </label>
+              <label id="urine-amount-field" class="hidden">
+                <span>小便数量</span>
+                <input id="urine-amount" name="urine_amount" type="number" min="0" step="1" value="1" inputmode="numeric" />
               </label>
               <label class="wide">
                 <span>备注 <small>（可选）</small></span>

@@ -5,19 +5,22 @@ create table if not exists public.medication_records (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
   occurred_at timestamptz not null default now(),
-  type text not null check (type in ('inhaled', 'oral', 'behavior')),
+  type text not null check (type in ('inhaled', 'oral', 'behavior', 'brushing', 'elimination')),
   medicine text,
   dose_amount numeric,
   dose_unit text check (dose_unit in ('mcg', 'mg')),
   frequency text,
+  bowel_movement boolean,
+  urine_amount integer check (urine_amount >= 0),
   note text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
 
   constraint medication_details_match_type check (
-    (type = 'inhaled' and medicine is not null and dose_amount > 0 and dose_unit = 'mcg' and frequency is not null)
-    or (type = 'oral' and medicine is not null and dose_amount > 0 and dose_unit = 'mg' and frequency is not null)
-    or (type = 'behavior' and medicine is null and dose_amount is null and dose_unit is null and frequency is null)
+    (type = 'inhaled' and medicine is not null and dose_amount > 0 and dose_unit = 'mcg' and frequency is not null and bowel_movement is null and urine_amount is null)
+    or (type = 'oral' and medicine is not null and dose_amount > 0 and dose_unit = 'mg' and frequency is not null and bowel_movement is null and urine_amount is null)
+    or (type in ('behavior', 'brushing') and medicine is null and dose_amount is null and dose_unit is null and frequency is null and bowel_movement is null and urine_amount is null)
+    or (type = 'elimination' and medicine is null and dose_amount is null and dose_unit is null and frequency is null and bowel_movement is not null and urine_amount is not null)
   )
 );
 

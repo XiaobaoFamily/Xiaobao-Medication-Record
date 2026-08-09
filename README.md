@@ -25,10 +25,12 @@ python3 -m http.server 8080
 ## 数据设计
 
 - `occurred_at`：事件实际发生时间（带时区）
-- `type`：`inhaled`、`oral`、`behavior`
+- `type`：`inhaled`、`oral`、`behavior`、`brushing`、`elimination`
 - `medicine`：行为记录时为空
 - `dose_amount` + `dose_unit`：拆分存储，方便统计和校验
 - `frequency`：该条用药记录发生时采用的服药频率
+- `bowel_movement`：排泄记录是否有大便
+- `urine_amount`：排泄记录中的小便数量
 - `note`：可选备注
 - `user_id`：由登录用户自动写入；RLS 只允许配置的两位照护者访问，并让两人共享记录
 
@@ -38,6 +40,11 @@ python3 -m http.server 8080
 
 如果数据库是在加入 `frequency` 之前创建的，请先在 Supabase **SQL Editor** 中运行一次
 `supabase/add_frequency.sql`，再部署新版网页。该脚本会为旧记录补上对应疗程阶段的频率。
+
+### 为现有数据库加入刷牙和排泄
+
+在部署包含刷牙、排泄和口服药提醒的版本前，请在 Supabase **SQL Editor** 中运行一次
+`supabase/add_care_types.sql`。
 
 ## 当前边界
 

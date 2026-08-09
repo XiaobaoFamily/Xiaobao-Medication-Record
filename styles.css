@@ -62,6 +62,14 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); box-sha
 .metric small { color: var(--muted); }
 .metric-accent { border-color: var(--accent); background: var(--accent); color: white; }
 .metric-accent span, .metric-accent small { color: rgba(255,255,255,0.72); }
+.reminder-metric { grid-column: 1 / -1; min-height: auto; background: #f7f2e8; }
+.reminder-metric strong { display: block; margin-top: 10px; font: 700 1.45rem/1.2 Georgia, serif; }
+.reminder-metric small { display: block; margin-top: 6px; }
+.reminder-metric[data-status="due"] { border-color: #cc775f; background: #fff0e9; }
+.reminder-metric[data-status="due"] strong { color: #9b3f2f; }
+.reminder-metric[data-status="complete"] { border-color: #82ab91; background: #eaf5ed; }
+.reminder-metric[data-status="complete"] strong { color: #28613c; }
+.reminder-metric[data-status="upcoming"] { border-color: #d6c394; }
 
 .all-time-summary { display: grid; grid-template-columns: 1.4fr repeat(2, 1fr); gap: 12px; align-items: stretch; margin: 0 0 18px; }
 .all-time-heading, .total-metric { padding: 18px 20px; border: 1px solid var(--line); border-radius: 20px; background: rgba(255,255,255,0.72); }
@@ -77,7 +85,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); box-sha
 .sync-state { padding: 7px 11px; border-radius: 99px; background: var(--soft); color: var(--accent); font-size: 0.72rem; font-weight: 800; }
 .record-form { margin-top: 28px; }
 fieldset { margin: 0 0 24px; padding: 0; border: 0; }
-.segmented { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 5px; border-radius: 15px; background: var(--soft); }
+.segmented { display: grid; grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); gap: 8px; padding: 5px; border-radius: 15px; background: var(--soft); }
 .segmented label { cursor: pointer; }
 .segmented input { position: absolute; opacity: 0; pointer-events: none; }
 .segmented span { display: grid; min-height: 43px; place-items: center; margin: 0; border-radius: 11px; color: var(--muted); font-size: 0.85rem; }
@@ -98,6 +106,8 @@ fieldset { margin: 0 0 24px; padding: 0; border: 0; }
 .record-icon { display: grid; width: 42px; height: 42px; place-items: center; border-radius: 14px; background: #dceee9; color: #26564f; font-weight: 850; }
 .record-row[data-type="oral"] .record-icon { background: var(--warm); color: #795a2e; }
 .record-row[data-type="behavior"] .record-icon { background: #e8e4f2; color: #5c4f79; }
+.record-row[data-type="brushing"] .record-icon { background: #e2eef6; color: #35637d; }
+.record-row[data-type="elimination"] .record-icon { background: #eee8df; color: #6f5940; }
 .record-title-line { display: flex; justify-content: space-between; gap: 12px; }
 .record-title-line time { color: var(--muted); font-size: 0.78rem; white-space: nowrap; }
 .record-dose, .record-note { margin: 4px 0 0; color: var(--muted); font-size: 0.82rem; }
