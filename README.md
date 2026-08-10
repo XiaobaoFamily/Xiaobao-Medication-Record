@@ -30,7 +30,7 @@ python3 -m http.server 8080
 - `dose_amount` + `dose_unit`：拆分存储，方便统计和校验
 - `frequency`：该条用药记录发生时采用的服药频率
 - `bowel_movement`：排泄记录是否有大便
-- `urine_amount`：排泄记录中的小便数量
+- `urine_amount`：排泄记录中的小便团数
 - `note`：可选备注
 - `user_id`：由登录用户自动写入；RLS 只允许配置的两位照护者访问，并让两人共享记录
 

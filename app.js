@@ -42,6 +42,7 @@ const elements = {
   records: $("#records"),
   empty: $("#empty-state"),
   refresh: $("#refresh"),
+  recordFilter: $("#record-filter"),
   pagination: $("#pagination"),
   previousPage: $("#previous-page"),
   nextPage: $("#next-page"),
@@ -238,6 +239,7 @@ if (!configured) {
       allTimeOralResult.count ?? 0,
     );
     renderOralReminder(allRecords);
+    renderEliminationSummary(allRecords);
     elements.syncState.textContent = "已同步";
   }
 
@@ -318,6 +320,41 @@ if (!configured) {
     }
   }
 
+  function formatEventTime(occurredAt) {
+    return new Intl.DateTimeFormat("zh-CN", {
+      timeZone: CHICAGO_TIME_ZONE,
+      month: "numeric",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(new Date(occurredAt));
+  }
+
+  function renderEliminationSummary(rows) {
+    const lastBowelMovement = rows.find(
+      (row) => row.type === "elimination" && row.bowel_movement === true,
+    );
+    const lastUrination = rows.find(
+      (row) => row.type === "elimination" && Number(row.urine_amount) > 0,
+    );
+
+    if (lastBowelMovement) {
+      $("#last-bowel-movement").textContent = formatEventTime(lastBowelMovement.occurred_at);
+      $("#last-bowel-detail").textContent = "最近一次有大便";
+    } else {
+      $("#last-bowel-movement").textContent = "暂无记录";
+      $("#last-bowel-detail").textContent = "还没有记录过大便";
+    }
+
+    if (lastUrination) {
+      $("#last-urine-amount").textContent = `${lastUrination.urine_amount} 团`;
+      $("#last-urine-detail").textContent = formatEventTime(lastUrination.occurred_at);
+    } else {
+      $("#last-urine-amount").textContent = "暂无记录";
+      $("#last-urine-detail").textContent = "还没有记录过小便";
+    }
+  }
+
   function dailyOccurrenceNumbers(rows) {
     const counts = new Map();
     const occurrenceById = new Map();
@@ -335,14 +372,24 @@ if (!configured) {
     return occurrenceById;
   }
 
+  function filteredRecords() {
+    const type = elements.recordFilter.value;
+    return type === "all" ? allRecords : allRecords.filter((row) => row.type === type);
+  }
+
   function renderRecordsPage() {
-    const totalPages = Math.max(1, Math.ceil(allRecords.length / PAGE_SIZE));
+    const visibleRecords = filteredRecords();
+    const totalPages = Math.max(1, Math.ceil(visibleRecords.length / PAGE_SIZE));
     currentPage = Math.min(currentPage, totalPages);
     const start = (currentPage - 1) * PAGE_SIZE;
-    const pageRows = allRecords.slice(start, start + PAGE_SIZE);
+    const pageRows = visibleRecords.slice(start, start + PAGE_SIZE);
+    elements.empty.textContent =
+      elements.recordFilter.value === "all"
+        ? "还没有记录。保存第一条事件后，它会出现在这里。"
+        : "这个类型还没有记录。";
     renderRecords(pageRows, dailyOccurrenceNumbers(allRecords));
 
-    show(elements.pagination, allRecords.length > PAGE_SIZE);
+    show(elements.pagination, visibleRecords.length > PAGE_SIZE);
     elements.pageStatus.textContent = `第 ${currentPage} / ${totalPages} 页`;
     elements.previousPage.disabled = currentPage === 1;
     elements.nextPage.disabled = currentPage === totalPages;
@@ -382,7 +429,7 @@ if (!configured) {
         dose.textContent = `当天第 ${occurrence} 次刷牙`;
       } else if (row.type === "elimination") {
         const bowelText = row.bowel_movement ? "有" : "没有";
-        dose.textContent = `当天第 ${occurrence} 次 · 大便：${bowelText} · 小便：${row.urine_amount}次`;
+        dose.textContent = `当天第 ${occurrence} 次 · 大便：${bowelText} · 小便：${row.urine_amount} 团`;
       } else {
         const dateKey = chicagoDateKey(eventDate);
         const frequency = row.frequency ?? frequencyFor(row.type, dateKey);
@@ -507,13 +554,17 @@ if (!configured) {
   });
 
   elements.refresh.addEventListener("click", loadRecords);
+  elements.recordFilter.addEventListener("change", () => {
+    currentPage = 1;
+    renderRecordsPage();
+  });
   elements.previousPage.addEventListener("click", () => {
     if (currentPage === 1) return;
     currentPage -= 1;
     renderRecordsPage();
   });
   elements.nextPage.addEventListener("click", () => {
-    if (currentPage * PAGE_SIZE >= allRecords.length) return;
+    if (currentPage * PAGE_SIZE >= filteredRecords().length) return;
     currentPage += 1;
     renderRecordsPage();
   });

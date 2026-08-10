@@ -70,6 +70,9 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); box-sha
 .reminder-metric[data-status="complete"] { border-color: #82ab91; background: #eaf5ed; }
 .reminder-metric[data-status="complete"] strong { color: #28613c; }
 .reminder-metric[data-status="upcoming"] { border-color: #d6c394; }
+.care-metric { grid-column: span 2; min-height: 112px; }
+.care-metric strong { display: block; margin-top: 10px; font: 700 1.35rem/1.2 Georgia, serif; }
+.care-metric small { display: block; margin-top: 6px; }
 
 .all-time-summary { display: grid; grid-template-columns: 1.4fr repeat(2, 1fr); gap: 12px; align-items: stretch; margin: 0 0 18px; }
 .all-time-heading, .total-metric { padding: 18px 20px; border: 1px solid var(--line); border-radius: 20px; background: rgba(255,255,255,0.72); }
@@ -92,6 +95,9 @@ fieldset { margin: 0 0 24px; padding: 0; border: 0; }
 .segmented input:checked + span { background: white; color: var(--ink); box-shadow: 0 3px 12px rgba(24, 51, 47, 0.08); }
 .segmented input:focus-visible + span { outline: 3px solid rgba(48, 95, 89, 0.2); }
 .form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
+.form-grid, .form-grid > label { min-width: 0; }
+.form-grid input, .form-grid select, .form-grid textarea { min-width: 0; max-width: 100%; }
+input[type="datetime-local"] { display: block; width: 100%; min-width: 0; max-width: 100%; }
 .wide { grid-column: 1 / -1; }
 .dose-control { display: grid; grid-template-columns: 1fr 95px; }
 .dose-control input { border-radius: 12px 0 0 12px; }
@@ -101,6 +107,8 @@ fieldset { margin: 0 0 24px; padding: 0; border: 0; }
 .form-message.error { color: #a53f38; }
 
 .history { padding: 0 clamp(4px, 2vw, 14px); }
+.history-actions { display: flex; align-items: center; gap: 12px; }
+.filter-select { width: auto; min-height: 42px; padding-right: 34px; background-color: white; font-size: 0.82rem; font-weight: 700; }
 .records { margin-top: 16px; border-top: 1px solid var(--line); }
 .record-row { display: grid; grid-template-columns: 44px 1fr auto; gap: 14px; align-items: center; padding: 18px 2px; border-bottom: 1px solid var(--line); }
 .record-icon { display: grid; width: 42px; height: 42px; place-items: center; border-radius: 14px; background: #dceee9; color: #26564f; font-weight: 850; }
@@ -124,12 +132,16 @@ code { padding: 2px 6px; border-radius: 5px; background: var(--soft); }
   .summary { grid-template-columns: repeat(2, 1fr); }
   .metric { min-height: 112px; }
   .metric-accent { grid-column: span 2; }
+  .care-metric { grid-column: span 1; }
   .all-time-summary { grid-template-columns: repeat(2, 1fr); }
   .all-time-heading { grid-column: 1 / -1; padding: 14px 18px; }
   .form-grid { grid-template-columns: 1fr; }
   .wide { grid-column: auto; }
   .card { border-radius: 20px; }
   .delete-button { opacity: 1; }
+  .history .section-heading { align-items: flex-end; }
+  .history-actions { gap: 8px; }
+  .filter-select { max-width: 126px; }
 }
 
 @media (display-mode: standalone) {

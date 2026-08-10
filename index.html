@@ -86,6 +86,16 @@
             <strong id="behavior-total">0</strong>
             <small>次</small>
           </article>
+          <article class="metric care-metric">
+            <span>上次大便</span>
+            <strong id="last-bowel-movement">暂无记录</strong>
+            <small id="last-bowel-detail">最近一次有大便的排泄记录</small>
+          </article>
+          <article class="metric care-metric">
+            <span>上次小便</span>
+            <strong id="last-urine-amount">暂无记录</strong>
+            <small id="last-urine-detail">最近一次有小便的排泄记录</small>
+          </article>
           <article id="oral-reminder-card" class="metric reminder-metric" data-status="neutral">
             <span>今日口服药提醒</span>
             <strong id="oral-reminder">计算中…</strong>
@@ -163,7 +173,7 @@
                 </select>
               </label>
               <label id="urine-amount-field" class="hidden">
-                <span>小便数量</span>
+                <span>小便数量（团）</span>
                 <input id="urine-amount" name="urine_amount" type="number" min="0" step="1" value="1" inputmode="numeric" />
               </label>
               <label class="wide">
@@ -182,7 +192,17 @@
               <p class="eyebrow">RECENT</p>
               <h2 id="history-title">最近记录</h2>
             </div>
-            <button id="refresh" class="text-button" type="button">刷新</button>
+            <div class="history-actions">
+              <select id="record-filter" class="filter-select" aria-label="筛选事件类型">
+                <option value="all">全部类型</option>
+                <option value="inhaled">吸入药</option>
+                <option value="oral">口服药</option>
+                <option value="behavior">小宝行为</option>
+                <option value="brushing">刷牙</option>
+                <option value="elimination">排泄</option>
+              </select>
+              <button id="refresh" class="text-button" type="button">刷新</button>
+            </div>
           </div>
           <div id="records" class="records" aria-live="polite"></div>
           <p id="empty-state" class="empty hidden">还没有记录。保存第一条事件后，它会出现在这里。</p>
