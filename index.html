@@ -65,7 +65,7 @@
       </section>
 
       <div id="app" class="hidden">
-        <section class="summary" aria-label="今日汇总">
+        <section class="summary hidden" data-tab-panel="dashboard" aria-label="今日汇总">
           <article class="metric metric-accent">
             <span>今日用药</span>
             <strong id="medicine-total">0</strong>
@@ -103,7 +103,7 @@
           </article>
         </section>
 
-        <section class="all-time-summary" aria-label="历史累计">
+        <section class="all-time-summary hidden" data-tab-panel="dashboard" aria-label="历史累计">
           <div class="all-time-heading">
             <p class="eyebrow">ALL-TIME TOTALS</p>
             <h2>历史累计</h2>
@@ -121,7 +121,7 @@
           </article>
         </section>
 
-        <section class="card entry-card" aria-labelledby="entry-title">
+        <section class="card entry-card" data-tab-panel="record" aria-labelledby="entry-title">
           <div class="section-heading">
             <div>
               <p class="eyebrow">NEW RECORD</p>
@@ -182,11 +182,12 @@
               </label>
             </div>
             <button id="save-button" class="primary save-button" type="submit">保存记录</button>
+            <button id="view-saved-record" class="secondary view-record-button hidden" type="button">查看刚保存的记录</button>
             <p id="form-message" class="form-message" role="status"></p>
           </form>
         </section>
 
-        <section class="history" aria-labelledby="history-title">
+        <section class="history hidden" data-tab-panel="dashboard" aria-labelledby="history-title">
           <div class="section-heading">
             <div>
               <p class="eyebrow">RECENT</p>
@@ -212,6 +213,17 @@
             <button id="next-page" class="secondary page-button" type="button">下一页</button>
           </nav>
         </section>
+
+        <nav class="bottom-tabs" aria-label="主要页面">
+          <button id="dashboard-tab" class="tab-button" type="button" aria-pressed="false">
+            <span class="tab-icon" aria-hidden="true">览</span>
+            <span>看板</span>
+          </button>
+          <button id="record-tab" class="tab-button active" type="button" aria-pressed="true">
+            <span class="tab-icon" aria-hidden="true">＋</span>
+            <span>记录</span>
+          </button>
+        </nav>
       </div>
     </main>
 

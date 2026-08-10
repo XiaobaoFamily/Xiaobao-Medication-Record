@@ -38,6 +38,7 @@ const elements = {
   urineAmountField: $("#urine-amount-field"),
   note: $("#note"),
   saveButton: $("#save-button"),
+  viewSavedRecord: $("#view-saved-record"),
   syncState: $("#sync-state"),
   records: $("#records"),
   empty: $("#empty-state"),
@@ -47,10 +48,13 @@ const elements = {
   previousPage: $("#previous-page"),
   nextPage: $("#next-page"),
   pageStatus: $("#page-status"),
+  dashboardTab: $("#dashboard-tab"),
+  recordTab: $("#record-tab"),
 };
 
 const PAGE_SIZE = 10;
 const CHICAGO_TIME_ZONE = "America/Chicago";
+const TAB_STORAGE_KEY = "xiaobao-active-tab";
 
 const typeMeta = {
   inhaled: { label: "吸入药", icon: "吸", className: "inhaled" },
@@ -92,6 +96,34 @@ function startOfTodayIso() {
 
 function show(element, visible) {
   element.classList.toggle("hidden", !visible);
+}
+
+function setActiveTab(tab, scrollToTop = true) {
+  const activeTab = tab === "dashboard" ? "dashboard" : "record";
+  document.querySelectorAll("[data-tab-panel]").forEach((panel) => {
+    show(panel, panel.dataset.tabPanel === activeTab);
+  });
+
+  const dashboardActive = activeTab === "dashboard";
+  elements.dashboardTab.classList.toggle("active", dashboardActive);
+  elements.dashboardTab.setAttribute("aria-pressed", String(dashboardActive));
+  elements.recordTab.classList.toggle("active", !dashboardActive);
+  elements.recordTab.setAttribute("aria-pressed", String(!dashboardActive));
+
+  try {
+    localStorage.setItem(TAB_STORAGE_KEY, activeTab);
+  } catch {
+    // localStorage 不可用时，Tab 仍可在当前页面正常切换。
+  }
+  if (scrollToTop) window.scrollTo(0, 0);
+}
+
+function initialTab() {
+  try {
+    return localStorage.getItem(TAB_STORAGE_KEY) ?? "record";
+  } catch {
+    return "record";
+  }
 }
 
 function setMessage(element, message, isError = false) {
@@ -170,6 +202,9 @@ elements.recordForm?.addEventListener("change", (event) => {
   if (event.target.name === "occurred_at") updateFrequencyPreview();
 });
 updateFrequencyPreview();
+setActiveTab(initialTab(), false);
+elements.dashboardTab.addEventListener("click", () => setActiveTab("dashboard"));
+elements.recordTab.addEventListener("click", () => setActiveTab("record"));
 
 if (!configured) {
   show(elements.setup, true);
@@ -521,6 +556,7 @@ if (!configured) {
     const isElimination = type === "elimination";
     elements.saveButton.disabled = true;
     elements.saveButton.textContent = "保存中…";
+    show(elements.viewSavedRecord, false);
     setMessage(elements.formMessage, "");
 
     const payload = {
@@ -551,12 +587,19 @@ if (!configured) {
     setMessage(elements.formMessage, "已保存");
     currentPage = 1;
     await loadRecords();
+    show(elements.viewSavedRecord, true);
   });
 
   elements.refresh.addEventListener("click", loadRecords);
   elements.recordFilter.addEventListener("change", () => {
     currentPage = 1;
     renderRecordsPage();
+  });
+  elements.viewSavedRecord.addEventListener("click", () => {
+    elements.recordFilter.value = "all";
+    currentPage = 1;
+    renderRecordsPage();
+    setActiveTab("dashboard");
   });
   elements.previousPage.addEventListener("click", () => {
     if (currentPage === 1) return;
