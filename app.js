@@ -69,6 +69,12 @@ const frequencyOptions = {
   oral: ["每天1次", "隔天1次", "每3天1次"],
 };
 
+const medicationDefaults = {
+  inhaled: { medicine: "Fluticasone", doseAmount: "110", doseUnit: "mcg", frequency: null },
+  oral: { medicine: "Prednisolone", doseAmount: "2.5", doseUnit: "mg", frequency: null },
+};
+let medicationDefaultsHydrated = false;
+
 const allowedUserIds = new Set([
   "f95b14d7-4881-4433-8442-a401831544e6",
   "45d59985-1e2c-424c-841a-18857c9a21a8",
@@ -152,10 +158,13 @@ function frequencyFor(type, dateKey) {
   return dateKey <= "2026-08-02" ? "隔天1次" : "每3天1次";
 }
 
-function updateFrequencyPreview() {
+function updateFrequencyPreview(preferredFrequency = null) {
   const type = selectedType();
   const dateKey = elements.occurredAt.value.slice(0, 10);
-  const options = frequencyOptions[type] ?? [];
+  const selectedFrequency =
+    preferredFrequency ?? medicationDefaults[type]?.frequency ?? frequencyFor(type, dateKey);
+  const options = [...(frequencyOptions[type] ?? [])];
+  if (selectedFrequency && !options.includes(selectedFrequency)) options.push(selectedFrequency);
   elements.frequency.replaceChildren(
     ...options.map((value) => {
       const option = document.createElement("option");
@@ -164,7 +173,26 @@ function updateFrequencyPreview() {
       return option;
     }),
   );
-  elements.frequency.value = frequencyFor(type, dateKey) ?? options[0] ?? "";
+  elements.frequency.value = selectedFrequency ?? options[0] ?? "";
+}
+
+function updateMedicationDefaults(rows) {
+  for (const type of ["inhaled", "oral"]) {
+    const latest = rows
+      .filter((row) => row.type === type)
+      .sort(
+        (left, right) =>
+          new Date(right.created_at) - new Date(left.created_at) ||
+          new Date(right.occurred_at) - new Date(left.occurred_at),
+      )[0];
+    if (!latest) continue;
+    medicationDefaults[type] = {
+      medicine: latest.medicine,
+      doseAmount: String(latest.dose_amount),
+      doseUnit: latest.dose_unit,
+      frequency: latest.frequency,
+    };
+  }
 }
 
 function applyTypeDefaults(type) {
@@ -181,27 +209,27 @@ function applyTypeDefaults(type) {
   elements.bowelMovement.required = isElimination;
   elements.urineAmount.required = isElimination;
 
-  if (type === "inhaled") {
-    elements.medicine.value = "Fluticasone";
-    elements.doseAmount.value = "110";
-    elements.doseUnit.value = "mcg";
-  } else if (type === "oral") {
-    elements.medicine.value = "Prednisolone";
-    elements.doseAmount.value = "2.5";
-    elements.doseUnit.value = "mg";
+  if (isMedication) {
+    const defaults = medicationDefaults[type];
+    elements.medicine.value = defaults.medicine;
+    elements.doseAmount.value = defaults.doseAmount;
+    elements.doseUnit.value = defaults.doseUnit;
+    updateFrequencyPreview(defaults.frequency);
   } else {
     elements.medicine.value = "";
     elements.doseAmount.value = "";
+    updateFrequencyPreview();
   }
-  updateFrequencyPreview();
 }
 
 elements.occurredAt.value = localDateTimeValue();
 elements.recordForm?.addEventListener("change", (event) => {
   if (event.target.name === "type") applyTypeDefaults(event.target.value);
-  if (event.target.name === "occurred_at") updateFrequencyPreview();
+  if (event.target.name === "occurred_at") {
+    updateFrequencyPreview(elements.frequency.value || medicationDefaults[selectedType()]?.frequency);
+  }
 });
-updateFrequencyPreview();
+applyTypeDefaults(selectedType());
 setActiveTab(initialTab(), false);
 elements.dashboardTab.addEventListener("click", () => setActiveTab("dashboard"));
 elements.recordTab.addEventListener("click", () => setActiveTab("record"));
@@ -239,7 +267,7 @@ if (!configured) {
     const [recentResult, todayResult, allTimeInhaledResult, allTimeOralResult] = await Promise.all([
       supabase
         .from("medication_records")
-        .select("id, occurred_at, type, medicine, dose_amount, dose_unit, frequency, bowel_movement, urine_amount, note")
+        .select("id, occurred_at, created_at, type, medicine, dose_amount, dose_unit, frequency, bowel_movement, urine_amount, note")
         .order("occurred_at", { ascending: false }),
       supabase
         .from("medication_records")
@@ -267,6 +295,11 @@ if (!configured) {
     }
 
     allRecords = recentResult.data ?? [];
+    updateMedicationDefaults(allRecords);
+    if (!medicationDefaultsHydrated) {
+      applyTypeDefaults(selectedType());
+      medicationDefaultsHydrated = true;
+    }
     renderRecordsPage();
     renderTotals(
       todayResult.data ?? [],
@@ -583,7 +616,15 @@ if (!configured) {
     elements.bowelMovement.value = "false";
     elements.urineAmount.value = "1";
     elements.occurredAt.value = localDateTimeValue();
-    updateFrequencyPreview();
+    if (isMedication) {
+      medicationDefaults[type] = {
+        medicine: payload.medicine,
+        doseAmount: String(payload.dose_amount),
+        doseUnit: payload.dose_unit,
+        frequency: payload.frequency,
+      };
+    }
+    applyTypeDefaults(type);
     setMessage(elements.formMessage, "已保存");
     currentPage = 1;
     await loadRecords();
