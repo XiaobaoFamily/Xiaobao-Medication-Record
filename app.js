@@ -308,6 +308,7 @@ if (!configured) {
     );
     renderOralReminder(allRecords);
     renderEliminationSummary(allRecords);
+    renderBrushingSummary(allRecords);
     elements.syncState.textContent = "已同步";
   }
 
@@ -420,6 +421,45 @@ if (!configured) {
     } else {
       $("#last-urine-amount").textContent = "暂无记录";
       $("#last-urine-detail").textContent = "还没有记录过小便";
+    }
+  }
+
+  function calendarDaysBetween(startKey, endKey) {
+    const toUtcTime = (dateKey) => {
+      const [year, month, day] = dateKey.split("-").map(Number);
+      return Date.UTC(year, month - 1, day);
+    };
+    return Math.floor((toUtcTime(endKey) - toUtcTime(startKey)) / 86_400_000);
+  }
+
+  function renderBrushingSummary(rows) {
+    const card = $("#brushing-summary-card");
+    const lastBrushing = rows.find((row) => row.type === "brushing");
+    const todayKey = chicagoDateKey(new Date());
+    const thirtyDayStartKey = addCalendarDays(todayKey, -29);
+    const brushingCount = rows.filter((row) => {
+      if (row.type !== "brushing") return false;
+      const dateKey = chicagoDateKey(new Date(row.occurred_at));
+      return dateKey >= thirtyDayStartKey && dateKey <= todayKey;
+    }).length;
+
+    $("#brushing-30-day-total").textContent = `近 30 天共 ${brushingCount} 次`;
+    if (!lastBrushing) {
+      card.dataset.status = "neutral";
+      $("#last-brushing-time").textContent = "暂无记录";
+      return;
+    }
+
+    const lastBrushingKey = chicagoDateKey(new Date(lastBrushing.occurred_at));
+    const daysSinceBrushing = Math.max(0, calendarDaysBetween(lastBrushingKey, todayKey));
+    $("#last-brushing-time").textContent = formatEventTime(lastBrushing.occurred_at);
+
+    if (daysSinceBrushing <= 2) {
+      card.dataset.status = "recent";
+    } else if (daysSinceBrushing <= 4) {
+      card.dataset.status = "warning";
+    } else {
+      card.dataset.status = "overdue";
     }
   }
 

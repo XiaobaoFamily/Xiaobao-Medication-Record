@@ -73,6 +73,12 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); box-sha
 .care-metric { grid-column: span 2; min-height: 112px; }
 .care-metric strong { display: block; margin-top: 10px; font: 700 1.35rem/1.2 Georgia, serif; }
 .care-metric small { display: block; margin-top: 6px; }
+.brushing-metric[data-status="recent"] { border-color: #82ab91; background: #eaf5ed; }
+.brushing-metric[data-status="recent"] strong { color: #28613c; }
+.brushing-metric[data-status="warning"] { border-color: #d6b866; background: #fff6d9; }
+.brushing-metric[data-status="warning"] strong { color: #80621f; }
+.brushing-metric[data-status="overdue"] { border-color: #cc775f; background: #fff0e9; }
+.brushing-metric[data-status="overdue"] strong { color: #9b3f2f; }
 
 .all-time-summary { display: grid; grid-template-columns: 1.4fr repeat(2, 1fr); gap: 12px; align-items: stretch; margin: 0 0 18px; }
 .all-time-heading, .total-metric { padding: 18px 20px; border: 1px solid var(--line); border-radius: 20px; background: rgba(255,255,255,0.72); }
