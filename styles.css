@@ -14,9 +14,18 @@
 
 * { box-sizing: border-box; }
 
+html {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
 body {
   margin: 0;
   min-width: 320px;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
   color: var(--ink);
   background:
     radial-gradient(circle at 90% -10%, rgba(245, 228, 201, 0.85), transparent 34rem),
@@ -27,8 +36,11 @@ button, input, select, textarea { font: inherit; }
 button { cursor: pointer; }
 button:disabled { cursor: wait; opacity: 0.65; }
 
-.shell { width: min(920px, calc(100% - 32px)); margin: 0 auto; padding: 36px 0 120px; }
+.shell { width: min(920px, calc(100vw - 32px)); max-width: calc(100vw - 32px); margin: 0 auto; padding: 36px 0 120px; }
 .topbar, .section-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.brand { display: flex; min-width: 0; align-items: center; gap: 18px; }
+.brand > div, #app, [data-tab-panel] { min-width: 0; max-width: 100%; }
+.site-logo { width: 72px; height: 72px; flex: 0 0 auto; border: 3px solid rgba(255, 255, 255, 0.9); border-radius: 24px; object-fit: cover; box-shadow: 0 10px 28px rgba(29, 67, 60, 0.16); }
 h1, h2, p { margin-top: 0; }
 h1 { margin-bottom: 5px; font: 700 clamp(2rem, 6vw, 3.35rem)/1.05 Georgia, serif; letter-spacing: -0.04em; }
 h2 { margin-bottom: 0; font: 700 1.6rem/1.2 Georgia, serif; letter-spacing: -0.02em; }
@@ -90,9 +102,9 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); box-sha
 .total-metric strong { display: inline-block; margin: 10px 4px 0 0; font: 700 2rem/1 Georgia, serif; }
 .total-metric small { color: var(--muted); }
 
-.entry-card { margin: 34px 0 44px; }
+.entry-card { width: 100%; max-width: 100%; min-width: 0; margin: 34px 0 44px; overflow-x: hidden; }
 .sync-state { padding: 7px 11px; border-radius: 99px; background: var(--soft); color: var(--accent); font-size: 0.72rem; font-weight: 800; }
-.record-form { margin-top: 28px; }
+.record-form { width: 100%; max-width: 100%; min-width: 0; margin-top: 28px; }
 fieldset { margin: 0 0 24px; padding: 0; border: 0; }
 .segmented { display: grid; grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); gap: 8px; padding: 5px; border-radius: 15px; background: var(--soft); }
 .segmented label { cursor: pointer; }
@@ -100,10 +112,12 @@ fieldset { margin: 0 0 24px; padding: 0; border: 0; }
 .segmented span { display: grid; min-height: 43px; place-items: center; margin: 0; border-radius: 11px; color: var(--muted); font-size: 0.85rem; }
 .segmented input:checked + span { background: white; color: var(--ink); box-shadow: 0 3px 12px rgba(24, 51, 47, 0.08); }
 .segmented input:focus-visible + span { outline: 3px solid rgba(48, 95, 89, 0.2); }
-.form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
-.form-grid, .form-grid > label { min-width: 0; }
+.record-form fieldset, .segmented, .form-grid, .form-grid > label, .dose-control { width: 100%; max-width: 100%; min-width: 0; }
+.form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
 .form-grid input, .form-grid select, .form-grid textarea { min-width: 0; max-width: 100%; }
-input[type="datetime-local"] { display: block; width: 100%; min-width: 0; max-width: 100%; }
+input[type="datetime-local"] { display: block; width: 100%; min-width: 0; max-width: 100%; overflow: hidden; -webkit-appearance: none; appearance: none; font-size: 16px; }
+input[type="datetime-local"]::-webkit-date-and-time-value { min-width: 0; text-align: left; }
+input[type="datetime-local"]::-webkit-datetime-edit { min-width: 0; padding: 0; }
 .wide { grid-column: 1 / -1; }
 .dose-control { display: grid; grid-template-columns: 1fr 95px; }
 .dose-control input { border-radius: 12px 0 0 12px; }
@@ -141,7 +155,10 @@ code { padding: 2px 6px; border-radius: 5px; background: var(--soft); }
 .tab-button.active .tab-icon { background: rgba(255, 255, 255, 0.16); color: white; }
 
 @media (max-width: 680px) {
-  .shell { width: min(100% - 22px, 560px); padding-top: 24px; }
+  .shell { width: min(calc(100vw - 22px), 560px); max-width: calc(100vw - 22px); padding-top: 24px; }
+  .brand { gap: 12px; }
+  .site-logo { width: 58px; height: 58px; border-radius: 19px; }
+  .topbar h1 { font-size: clamp(1.72rem, 8vw, 2.3rem); }
   .summary { grid-template-columns: repeat(2, 1fr); }
   .metric { min-height: 112px; }
   .metric-accent { grid-column: span 2; }
