@@ -52,7 +52,7 @@ h2 { margin-bottom: 0; font: 700 1.6rem/1.2 Georgia, serif; letter-spacing: -0.0
 .notice, .auth-card { max-width: 560px; margin: 50px auto 0; }
 .auth-card h2 { margin-bottom: 10px; }
 .stack { display: grid; gap: 16px; margin-top: 26px; }
-label > span:first-child, legend { display: block; margin-bottom: 8px; color: #39534f; font-size: 0.83rem; font-weight: 700; }
+label > span:first-child, .field-label, legend { display: block; margin-bottom: 8px; color: #39534f; font-size: 0.83rem; font-weight: 700; }
 input, select, textarea { width: 100%; border: 1px solid var(--line); border-radius: 12px; outline: none; background: #fbfcfb; color: var(--ink); }
 input, select { min-height: 48px; padding: 0 13px; }
 input[readonly] { background: var(--soft); color: var(--accent); font-weight: 750; }
@@ -112,7 +112,7 @@ fieldset { margin: 0 0 24px; padding: 0; border: 0; }
 .segmented span { display: grid; min-height: 43px; place-items: center; margin: 0; border-radius: 11px; color: var(--muted); font-size: 0.85rem; }
 .segmented input:checked + span { background: white; color: var(--ink); box-shadow: 0 3px 12px rgba(24, 51, 47, 0.08); }
 .segmented input:focus-visible + span { outline: 3px solid rgba(48, 95, 89, 0.2); }
-.record-form fieldset, .segmented, .form-grid, .form-grid > label, .dose-control { width: 100%; max-width: 100%; min-width: 0; }
+.record-form fieldset, .segmented, .form-grid, .form-grid > label, .form-grid > .form-field, .dose-control, .frequency-control { width: 100%; max-width: 100%; min-width: 0; }
 .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
 .form-grid input, .form-grid select, .form-grid textarea { min-width: 0; max-width: 100%; }
 input[type="datetime-local"] { display: block; width: 100%; min-width: 0; max-width: 100%; overflow: hidden; -webkit-appearance: none; appearance: none; font-size: 16px; }
@@ -122,6 +122,9 @@ input[type="datetime-local"]::-webkit-datetime-edit { min-width: 0; padding: 0; 
 .dose-control { display: grid; grid-template-columns: 1fr 95px; }
 .dose-control input { border-radius: 12px 0 0 12px; }
 .dose-control select { border-left: 0; border-radius: 0 12px 12px 0; }
+.frequency-control { display: grid; grid-template-columns: auto minmax(58px, 1fr) auto minmax(58px, 1fr) auto; gap: 8px; align-items: center; }
+.frequency-control span { color: var(--muted); font-size: 0.88rem; font-weight: 700; white-space: nowrap; }
+.frequency-control input { text-align: center; }
 .save-button { width: 100%; margin-top: 24px; }
 .view-record-button { width: 100%; margin-top: 10px; }
 .form-message { min-height: 20px; margin: 10px 0 0; color: var(--accent); font-size: 0.82rem; }

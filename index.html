@@ -170,10 +170,17 @@
                   </select>
                 </span>
               </label>
-              <label id="frequency-field">
-                <span>服药频率</span>
-                <select id="frequency" name="frequency"></select>
-              </label>
+              <div id="frequency-field" class="form-field">
+                <span class="field-label">服药频率</span>
+                <div class="frequency-control">
+                  <span>每</span>
+                  <input id="frequency-days" name="frequency_days" type="number" min="1" step="1" value="1" inputmode="numeric" aria-label="间隔天数" required />
+                  <span>天</span>
+                  <input id="frequency-times" name="frequency_times" type="number" min="1" step="1" value="2" inputmode="numeric" aria-label="每个周期的用药次数" required />
+                  <span>次</span>
+                </div>
+                <input id="frequency" name="frequency" type="hidden" value="每天2次" />
+              </div>
               <label id="bowel-movement-field" class="hidden">
                 <span>大便</span>
                 <select id="bowel-movement" name="bowel_movement">

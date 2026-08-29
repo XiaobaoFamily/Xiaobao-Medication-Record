@@ -28,7 +28,7 @@ python3 -m http.server 8080
 - `type`：`inhaled`、`oral`、`behavior`、`brushing`、`elimination`
 - `medicine`：行为记录时为空
 - `dose_amount` + `dose_unit`：拆分存储，方便统计和校验
-- `frequency`：该条用药记录发生时采用的服药频率
+- `frequency`：该条用药记录发生时采用的服药频率，格式为“每 X 天 X 次”（例如 `每天3次`、`每3天1次`）
 - `bowel_movement`：排泄记录是否有大便
 - `urine_amount`：排泄记录中的小便团数
 - `note`：可选备注

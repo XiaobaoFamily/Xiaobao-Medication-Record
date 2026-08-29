@@ -32,6 +32,8 @@ const elements = {
   doseUnit: $("#dose-unit"),
   frequency: $("#frequency"),
   frequencyField: $("#frequency-field"),
+  frequencyDays: $("#frequency-days"),
+  frequencyTimes: $("#frequency-times"),
   bowelMovement: $("#bowel-movement"),
   bowelMovementField: $("#bowel-movement-field"),
   urineAmount: $("#urine-amount"),
@@ -62,11 +64,6 @@ const typeMeta = {
   behavior: { label: "小宝行为", icon: "记", className: "behavior" },
   brushing: { label: "刷牙", icon: "牙", className: "brushing" },
   elimination: { label: "排泄", icon: "排", className: "elimination" },
-};
-
-const frequencyOptions = {
-  inhaled: ["每天1次", "每天2次", "每天3次", "每天4次"],
-  oral: ["每天1次", "隔天1次", "每3天1次"],
 };
 
 const medicationDefaults = {
@@ -153,9 +150,41 @@ function chicagoDateKey(date) {
 }
 
 function frequencyFor(type, dateKey) {
-  if (!frequencyOptions[type]) return null;
+  if (type !== "inhaled" && type !== "oral") return null;
   if (type === "inhaled") return dateKey <= "2026-07-30" ? "每天2次" : "每天3次";
-  return dateKey <= "2026-08-02" ? "隔天1次" : "每3天1次";
+  return dateKey <= "2026-08-02" ? "每2天1次" : "每3天1次";
+}
+
+function validFrequencySchedule(days, times) {
+  return Number.isInteger(days) && days >= 1 && Number.isInteger(times) && times >= 1;
+}
+
+function parseFrequency(frequency) {
+  if (!frequency) return null;
+  const dailyMatch = frequency.match(/^每天(\d+)次$/);
+  if (dailyMatch) {
+    const schedule = { days: 1, times: Number(dailyMatch[1]) };
+    return validFrequencySchedule(schedule.days, schedule.times) ? schedule : null;
+  }
+  if (frequency === "隔天1次") return { days: 2, times: 1 };
+  const intervalMatch = frequency.match(/^每(\d+)天(\d+)次$/);
+  if (intervalMatch) {
+    const schedule = { days: Number(intervalMatch[1]), times: Number(intervalMatch[2]) };
+    return validFrequencySchedule(schedule.days, schedule.times) ? schedule : null;
+  }
+  return null;
+}
+
+function formatFrequency(days, times) {
+  return days === 1 ? `每天${times}次` : `每${days}天${times}次`;
+}
+
+function syncFrequencyValue() {
+  const days = Number(elements.frequencyDays.value);
+  const times = Number(elements.frequencyTimes.value);
+  elements.frequency.value = validFrequencySchedule(days, times)
+    ? formatFrequency(days, times)
+    : "";
 }
 
 function updateFrequencyPreview(preferredFrequency = null) {
@@ -163,17 +192,10 @@ function updateFrequencyPreview(preferredFrequency = null) {
   const dateKey = elements.occurredAt.value.slice(0, 10);
   const selectedFrequency =
     preferredFrequency ?? medicationDefaults[type]?.frequency ?? frequencyFor(type, dateKey);
-  const options = [...(frequencyOptions[type] ?? [])];
-  if (selectedFrequency && !options.includes(selectedFrequency)) options.push(selectedFrequency);
-  elements.frequency.replaceChildren(
-    ...options.map((value) => {
-      const option = document.createElement("option");
-      option.value = value;
-      option.textContent = value;
-      return option;
-    }),
-  );
-  elements.frequency.value = selectedFrequency ?? options[0] ?? "";
+  const parsed = parseFrequency(selectedFrequency) ?? { days: 1, times: 1 };
+  elements.frequencyDays.value = String(parsed.days);
+  elements.frequencyTimes.value = String(parsed.times);
+  syncFrequencyValue();
 }
 
 function updateMedicationDefaults(rows) {
@@ -205,7 +227,8 @@ function applyTypeDefaults(type) {
   show(elements.urineAmountField, isElimination);
   elements.medicine.required = isMedication;
   elements.doseAmount.required = isMedication;
-  elements.frequency.required = isMedication;
+  elements.frequencyDays.required = isMedication;
+  elements.frequencyTimes.required = isMedication;
   elements.bowelMovement.required = isElimination;
   elements.urineAmount.required = isElimination;
 
@@ -229,6 +252,8 @@ elements.recordForm?.addEventListener("change", (event) => {
     updateFrequencyPreview(elements.frequency.value || medicationDefaults[selectedType()]?.frequency);
   }
 });
+elements.frequencyDays.addEventListener("input", syncFrequencyValue);
+elements.frequencyTimes.addEventListener("input", syncFrequencyValue);
 applyTypeDefaults(selectedType());
 setActiveTab(initialTab(), false);
 elements.dashboardTab.addEventListener("click", () => setActiveTab("dashboard"));
@@ -338,13 +363,6 @@ if (!configured) {
     );
   }
 
-  function oralIntervalDays(frequency) {
-    if (frequency === "每天1次") return 1;
-    if (frequency === "隔天1次") return 2;
-    if (frequency === "每3天1次") return 3;
-    return null;
-  }
-
   function renderOralReminder(rows) {
     const card = $("#oral-reminder-card");
     const title = $("#oral-reminder");
@@ -361,31 +379,43 @@ if (!configured) {
     const todayKey = chicagoDateKey(new Date());
     const lastDoseKey = chicagoDateKey(new Date(latestOral.occurred_at));
     const frequency = latestOral.frequency ?? frequencyFor("oral", lastDoseKey);
-    const intervalDays = oralIntervalDays(frequency);
+    const schedule = parseFrequency(frequency);
+    const normalizedFrequency = schedule
+      ? formatFrequency(schedule.days, schedule.times)
+      : frequency;
+    const todayOralCount = rows.filter(
+      (row) => row.type === "oral" && chicagoDateKey(new Date(row.occurred_at)) === todayKey,
+    ).length;
 
     if (lastDoseKey === todayKey) {
-      card.dataset.status = "complete";
-      title.textContent = "今日已服";
-      detail.textContent = `当前频率：${frequency}`;
+      if (schedule && todayOralCount < schedule.times) {
+        card.dataset.status = "due";
+        title.textContent = `今天还需口服 ${schedule.times - todayOralCount} 次`;
+        detail.textContent = `当前频率：${normalizedFrequency} · 已完成 ${todayOralCount}/${schedule.times} 次`;
+      } else {
+        card.dataset.status = "complete";
+        title.textContent = "今日已完成";
+        detail.textContent = `当前频率：${normalizedFrequency}`;
+      }
       return;
     }
 
-    if (!intervalDays) {
+    if (!schedule) {
       card.dataset.status = "neutral";
       title.textContent = "请确认今日安排";
       detail.textContent = `当前频率：${frequency}`;
       return;
     }
 
-    const nextDoseKey = addCalendarDays(lastDoseKey, intervalDays);
+    const nextDoseKey = addCalendarDays(lastDoseKey, schedule.days);
     if (todayKey >= nextDoseKey) {
       card.dataset.status = "due";
-      title.textContent = "今天需要口服药";
-      detail.textContent = `当前频率：${frequency} · 上次 ${formatDateKey(lastDoseKey)}`;
+      title.textContent = schedule.times === 1 ? "今天需要口服药" : `今天需要口服 ${schedule.times} 次`;
+      detail.textContent = `当前频率：${normalizedFrequency} · 上次 ${formatDateKey(lastDoseKey)}`;
     } else {
       card.dataset.status = "upcoming";
       title.textContent = "今天不需要口服药";
-      detail.textContent = `当前频率：${frequency} · 下次预计 ${formatDateKey(nextDoseKey)}`;
+      detail.textContent = `当前频率：${normalizedFrequency} · 下次预计 ${formatDateKey(nextDoseKey)}`;
     }
   }
 
@@ -540,7 +570,11 @@ if (!configured) {
         dose.textContent = `当天第 ${occurrence} 次 · 大便：${bowelText} · 小便：${row.urine_amount} 团`;
       } else {
         const dateKey = chicagoDateKey(eventDate);
-        const frequency = row.frequency ?? frequencyFor(row.type, dateKey);
+        const storedFrequency = row.frequency ?? frequencyFor(row.type, dateKey);
+        const schedule = parseFrequency(storedFrequency);
+        const frequency = schedule
+          ? formatFrequency(schedule.days, schedule.times)
+          : storedFrequency;
         dose.textContent = `当天第 ${occurrence} 次 · 频率：${frequency}`;
       }
       note.textContent = row.note ?? "";
@@ -631,6 +665,7 @@ if (!configured) {
     elements.saveButton.textContent = "保存中…";
     show(elements.viewSavedRecord, false);
     setMessage(elements.formMessage, "");
+    if (isMedication) syncFrequencyValue();
 
     const payload = {
       occurred_at: new Date(elements.occurredAt.value).toISOString(),
