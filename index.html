@@ -289,10 +289,20 @@
                 <p class="eyebrow">TIMELINE</p>
                 <h2 id="medical-timeline-title">医疗时间轴</h2>
               </div>
-              <button id="medical-refresh" class="text-button" type="button">刷新</button>
+              <div class="history-actions">
+                <select id="medical-month-filter" class="filter-select" aria-label="筛选医疗记录月份">
+                  <option value="all">全部月份</option>
+                </select>
+                <button id="medical-refresh" class="text-button" type="button">刷新</button>
+              </div>
             </div>
             <div id="medical-timeline" class="medical-timeline" aria-live="polite"></div>
             <p id="medical-empty-state" class="empty hidden">还没有医疗记录。</p>
+            <nav id="medical-pagination" class="pagination hidden" aria-label="医疗时间轴分页">
+              <button id="medical-previous-page" class="secondary page-button" type="button">上一页</button>
+              <span id="medical-page-status" aria-live="polite">第 1 / 1 页</span>
+              <button id="medical-next-page" class="secondary page-button" type="button">下一页</button>
+            </nav>
           </section>
         </section>
 

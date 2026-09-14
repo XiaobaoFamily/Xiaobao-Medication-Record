@@ -69,6 +69,11 @@ const elements = {
   medicalTimeline: $("#medical-timeline"),
   medicalEmpty: $("#medical-empty-state"),
   medicalRefresh: $("#medical-refresh"),
+  medicalMonthFilter: $("#medical-month-filter"),
+  medicalPagination: $("#medical-pagination"),
+  medicalPreviousPage: $("#medical-previous-page"),
+  medicalNextPage: $("#medical-next-page"),
+  medicalPageStatus: $("#medical-page-status"),
 };
 
 const PAGE_SIZE = 10;
@@ -314,6 +319,7 @@ if (!configured) {
   let allRecords = [];
   let medicalHistory = [];
   let currentPage = 1;
+  let medicalCurrentPage = 1;
 
   async function renderSession(session) {
     if (session && !allowedUserIds.has(session.user.id)) {
@@ -409,11 +415,13 @@ if (!configured) {
       elements.medicalSyncState.textContent = "同步失败";
       setMessage(elements.medicalMessage, medicalErrorMessage("读取", error), true);
       medicalHistory = [];
+      renderMedicalMonthOptions();
       renderMedicalTimeline();
       return;
     }
 
     medicalHistory = data ?? [];
+    renderMedicalMonthOptions();
     renderMedicalTimeline();
     elements.medicalSyncState.textContent = "已同步";
   }
@@ -427,11 +435,66 @@ if (!configured) {
     }).format(new Date(Date.UTC(year, month - 1, day, 12)));
   }
 
+  function medicalMonthKey(row) {
+    return row.occurred_on.slice(0, 7);
+  }
+
+  function formatMedicalMonth(monthKey) {
+    const [year, month] = monthKey.split("-");
+    return `${year}年${Number(month)}月`;
+  }
+
+  function renderMedicalMonthOptions() {
+    const selectedMonth = elements.medicalMonthFilter.value;
+    const months = [...new Set(medicalHistory.map(medicalMonthKey))];
+    const allOption = document.createElement("option");
+    allOption.value = "all";
+    allOption.textContent = "全部月份";
+    const monthOptions = months.map((monthKey) => {
+      const option = document.createElement("option");
+      option.value = monthKey;
+      option.textContent = formatMedicalMonth(monthKey);
+      return option;
+    });
+    elements.medicalMonthFilter.replaceChildren(allOption, ...monthOptions);
+    elements.medicalMonthFilter.value = months.includes(selectedMonth) ? selectedMonth : "all";
+  }
+
+  function filteredMedicalHistory() {
+    const month = elements.medicalMonthFilter.value;
+    return month === "all"
+      ? medicalHistory
+      : medicalHistory.filter((row) => medicalMonthKey(row) === month);
+  }
+
   function renderMedicalTimeline() {
     elements.medicalTimeline.replaceChildren();
-    show(elements.medicalEmpty, medicalHistory.length === 0);
+    const visibleHistory = filteredMedicalHistory();
+    const totalPages = Math.max(1, Math.ceil(visibleHistory.length / PAGE_SIZE));
+    medicalCurrentPage = Math.min(medicalCurrentPage, totalPages);
+    const start = (medicalCurrentPage - 1) * PAGE_SIZE;
+    const pageRows = visibleHistory.slice(start, start + PAGE_SIZE);
+    const showMonthDividers = elements.medicalMonthFilter.value === "all";
+    let previousMonth = null;
 
-    for (const row of medicalHistory) {
+    elements.medicalEmpty.textContent =
+      elements.medicalMonthFilter.value === "all"
+        ? "还没有医疗记录。"
+        : "这个月份还没有医疗记录。";
+    show(elements.medicalEmpty, pageRows.length === 0);
+
+    for (const row of pageRows) {
+      const monthKey = medicalMonthKey(row);
+      if (showMonthDividers && monthKey !== previousMonth) {
+        const divider = document.createElement("div");
+        divider.className = "timeline-month-divider";
+        const label = document.createElement("span");
+        label.textContent = formatMedicalMonth(monthKey);
+        divider.append(label);
+        elements.medicalTimeline.append(divider);
+        previousMonth = monthKey;
+      }
+
       const fragment = $("#medical-timeline-template").content.cloneNode(true);
       const meta = medicalTypeMeta[row.event_type] ?? medicalTypeMeta.illness;
       const article = fragment.querySelector("article");
@@ -479,6 +542,11 @@ if (!configured) {
 
       elements.medicalTimeline.append(fragment);
     }
+
+    show(elements.medicalPagination, visibleHistory.length > PAGE_SIZE);
+    elements.medicalPageStatus.textContent = `第 ${medicalCurrentPage} / ${totalPages} 页`;
+    elements.medicalPreviousPage.disabled = medicalCurrentPage === 1;
+    elements.medicalNextPage.disabled = medicalCurrentPage === totalPages;
   }
 
   function renderTotals(rows, allTimeInhaled, allTimeOral) {
@@ -801,6 +869,8 @@ if (!configured) {
     elements.medicalFrequencyTimes.value = "";
     elements.medicalNote.value = "";
     elements.medicalOccurredOn.value = chicagoDateKey(new Date());
+    elements.medicalMonthFilter.value = "all";
+    medicalCurrentPage = 1;
     await loadMedicalHistory();
     setMessage(elements.medicalMessage, "已保存到医疗时间轴");
   });
@@ -917,6 +987,20 @@ if (!configured) {
 
   elements.refresh.addEventListener("click", loadRecords);
   elements.medicalRefresh.addEventListener("click", loadMedicalHistory);
+  elements.medicalMonthFilter.addEventListener("change", () => {
+    medicalCurrentPage = 1;
+    renderMedicalTimeline();
+  });
+  elements.medicalPreviousPage.addEventListener("click", () => {
+    if (medicalCurrentPage === 1) return;
+    medicalCurrentPage -= 1;
+    renderMedicalTimeline();
+  });
+  elements.medicalNextPage.addEventListener("click", () => {
+    if (medicalCurrentPage * PAGE_SIZE >= filteredMedicalHistory().length) return;
+    medicalCurrentPage += 1;
+    renderMedicalTimeline();
+  });
   elements.recordFilter.addEventListener("change", () => {
     currentPage = 1;
     renderRecordsPage();

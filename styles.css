@@ -134,6 +134,8 @@ input[type="datetime-local"]::-webkit-datetime-edit, input[type="date"]::-webkit
 .medical-entry-card, .medical-timeline-card { width: 100%; max-width: 100%; min-width: 0; }
 .medical-timeline { position: relative; margin-top: 22px; }
 .medical-timeline::before { position: absolute; top: 18px; bottom: 18px; left: 17px; width: 2px; background: var(--line); content: ""; }
+.timeline-month-divider { position: relative; z-index: 1; margin: 0 0 18px 50px; color: var(--accent); font: 700 1rem/1.2 Georgia, serif; }
+.timeline-month-divider span { display: inline-block; padding: 5px 10px; border: 1px solid var(--line); border-radius: 99px; background: white; }
 .timeline-item { position: relative; display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; gap: 14px; align-items: start; padding: 0 0 28px; }
 .timeline-item:last-child { padding-bottom: 0; }
 .timeline-marker { position: relative; z-index: 1; display: grid; width: 36px; height: 36px; place-items: center; border: 5px solid white; border-radius: 50%; background: #8fb9ae; box-shadow: 0 0 0 1px var(--line); }
@@ -196,6 +198,7 @@ code { padding: 2px 6px; border-radius: 5px; background: var(--soft); }
   .card { border-radius: 20px; }
   .delete-button { opacity: 1; }
   .history .section-heading { align-items: flex-end; }
+  .medical-timeline-card .section-heading { align-items: flex-end; }
   .history-actions { gap: 8px; }
   .filter-select { max-width: 126px; }
   .timeline-item { grid-template-columns: 36px minmax(0, 1fr); }
