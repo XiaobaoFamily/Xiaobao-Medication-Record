@@ -52,6 +52,23 @@ const elements = {
   pageStatus: $("#page-status"),
   dashboardTab: $("#dashboard-tab"),
   recordTab: $("#record-tab"),
+  medicalTab: $("#medical-tab"),
+  medicalForm: $("#medical-form"),
+  medicalOccurredOn: $("#medical-occurred-on"),
+  medicalTitleLabel: $("#medical-title-label"),
+  medicalTitle: $("#medical-title"),
+  medicalDoseField: $("#medical-dose-field"),
+  medicalDose: $("#medical-dose"),
+  medicalFrequencyField: $("#medical-frequency-field"),
+  medicalFrequencyDays: $("#medical-frequency-days"),
+  medicalFrequencyTimes: $("#medical-frequency-times"),
+  medicalNote: $("#medical-note"),
+  medicalSaveButton: $("#medical-save-button"),
+  medicalMessage: $("#medical-message"),
+  medicalSyncState: $("#medical-sync-state"),
+  medicalTimeline: $("#medical-timeline"),
+  medicalEmpty: $("#medical-empty-state"),
+  medicalRefresh: $("#medical-refresh"),
 };
 
 const PAGE_SIZE = 10;
@@ -64,6 +81,12 @@ const typeMeta = {
   behavior: { label: "小宝行为", icon: "记", className: "behavior" },
   brushing: { label: "刷牙", icon: "牙", className: "brushing" },
   elimination: { label: "排泄", icon: "排", className: "elimination" },
+};
+
+const medicalTypeMeta = {
+  vaccine: { label: "疫苗", icon: "苗", titleLabel: "疫苗名称", placeholder: "例如：狂犬疫苗" },
+  illness: { label: "疾病", icon: "病", titleLabel: "疾病或症状", placeholder: "例如：哮喘" },
+  medication_change: { label: "用药调整", icon: "药", titleLabel: "药物名称", placeholder: "例如：Fluticasone" },
 };
 
 const medicationDefaults = {
@@ -102,16 +125,20 @@ function show(element, visible) {
 }
 
 function setActiveTab(tab, scrollToTop = true) {
-  const activeTab = tab === "dashboard" ? "dashboard" : "record";
+  const activeTab = ["dashboard", "record", "medical"].includes(tab) ? tab : "record";
   document.querySelectorAll("[data-tab-panel]").forEach((panel) => {
     show(panel, panel.dataset.tabPanel === activeTab);
   });
 
   const dashboardActive = activeTab === "dashboard";
+  const recordActive = activeTab === "record";
+  const medicalActive = activeTab === "medical";
   elements.dashboardTab.classList.toggle("active", dashboardActive);
   elements.dashboardTab.setAttribute("aria-pressed", String(dashboardActive));
-  elements.recordTab.classList.toggle("active", !dashboardActive);
-  elements.recordTab.setAttribute("aria-pressed", String(!dashboardActive));
+  elements.recordTab.classList.toggle("active", recordActive);
+  elements.recordTab.setAttribute("aria-pressed", String(recordActive));
+  elements.medicalTab.classList.toggle("active", medicalActive);
+  elements.medicalTab.setAttribute("aria-pressed", String(medicalActive));
 
   try {
     localStorage.setItem(TAB_STORAGE_KEY, activeTab);
@@ -136,6 +163,19 @@ function setMessage(element, message, isError = false) {
 
 function selectedType() {
   return new FormData(elements.recordForm).get("type");
+}
+
+function selectedMedicalType() {
+  return new FormData(elements.medicalForm).get("medical_type");
+}
+
+function applyMedicalType(type) {
+  const meta = medicalTypeMeta[type] ?? medicalTypeMeta.vaccine;
+  const isMedicationChange = type === "medication_change";
+  elements.medicalTitleLabel.textContent = meta.titleLabel;
+  elements.medicalTitle.placeholder = meta.placeholder;
+  show(elements.medicalDoseField, isMedicationChange);
+  show(elements.medicalFrequencyField, isMedicationChange);
 }
 
 function chicagoDateKey(date) {
@@ -246,6 +286,7 @@ function applyTypeDefaults(type) {
 }
 
 elements.occurredAt.value = localDateTimeValue();
+elements.medicalOccurredOn.value = chicagoDateKey(new Date());
 elements.recordForm?.addEventListener("change", (event) => {
   if (event.target.name === "type") applyTypeDefaults(event.target.value);
   if (event.target.name === "occurred_at") {
@@ -254,10 +295,15 @@ elements.recordForm?.addEventListener("change", (event) => {
 });
 elements.frequencyDays.addEventListener("input", syncFrequencyValue);
 elements.frequencyTimes.addEventListener("input", syncFrequencyValue);
+elements.medicalForm.addEventListener("change", (event) => {
+  if (event.target.name === "medical_type") applyMedicalType(event.target.value);
+});
 applyTypeDefaults(selectedType());
+applyMedicalType(selectedMedicalType());
 setActiveTab(initialTab(), false);
 elements.dashboardTab.addEventListener("click", () => setActiveTab("dashboard"));
 elements.recordTab.addEventListener("click", () => setActiveTab("record"));
+elements.medicalTab.addEventListener("click", () => setActiveTab("medical"));
 
 if (!configured) {
   show(elements.setup, true);
@@ -266,6 +312,7 @@ if (!configured) {
     auth: { persistSession: true, detectSessionInUrl: true },
   });
   let allRecords = [];
+  let medicalHistory = [];
   let currentPage = 1;
 
   async function renderSession(session) {
@@ -284,7 +331,9 @@ if (!configured) {
     show(elements.passwordPanel, settingPassword);
     show(elements.app, signedIn && !settingPassword);
     show(elements.signOut, signedIn && !settingPassword);
-    if (signedIn && !settingPassword) await loadRecords();
+    if (signedIn && !settingPassword) {
+      await Promise.all([loadRecords(), loadMedicalHistory()]);
+    }
   }
 
   async function loadRecords() {
@@ -335,6 +384,101 @@ if (!configured) {
     renderEliminationSummary(allRecords);
     renderBrushingSummary(allRecords);
     elements.syncState.textContent = "已同步";
+  }
+
+  function medicalErrorMessage(action, error) {
+    const tableMissing =
+      error.code === "42P01" ||
+      error.code === "PGRST205" ||
+      /medical_history.*does not exist|could not find.*medical_history|schema cache/i.test(error.message ?? "");
+    if (tableMissing) {
+      return `${action}失败：请先在 Supabase SQL Editor 运行 supabase/add_medical_history.sql`;
+    }
+    return `${action}失败：${error.message}`;
+  }
+
+  async function loadMedicalHistory() {
+    elements.medicalSyncState.textContent = "同步中…";
+    const { data, error } = await supabase
+      .from("medical_history")
+      .select("id, occurred_on, event_type, title, dose, frequency, note, created_at")
+      .order("occurred_on", { ascending: false })
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      elements.medicalSyncState.textContent = "同步失败";
+      setMessage(elements.medicalMessage, medicalErrorMessage("读取", error), true);
+      medicalHistory = [];
+      renderMedicalTimeline();
+      return;
+    }
+
+    medicalHistory = data ?? [];
+    renderMedicalTimeline();
+    elements.medicalSyncState.textContent = "已同步";
+  }
+
+  function formatMedicalDate(dateKey) {
+    const [year, month, day] = dateKey.split("-").map(Number);
+    return new Intl.DateTimeFormat("zh-CN", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    }).format(new Date(Date.UTC(year, month - 1, day, 12)));
+  }
+
+  function renderMedicalTimeline() {
+    elements.medicalTimeline.replaceChildren();
+    show(elements.medicalEmpty, medicalHistory.length === 0);
+
+    for (const row of medicalHistory) {
+      const fragment = $("#medical-timeline-template").content.cloneNode(true);
+      const meta = medicalTypeMeta[row.event_type] ?? medicalTypeMeta.illness;
+      const article = fragment.querySelector("article");
+      const marker = fragment.querySelector(".timeline-marker");
+      const type = fragment.querySelector(".timeline-type");
+      const time = fragment.querySelector("time");
+      const title = fragment.querySelector(".timeline-title");
+      const details = fragment.querySelector(".timeline-details");
+      const note = fragment.querySelector(".timeline-note");
+      const deleteButton = fragment.querySelector(".timeline-delete");
+
+      article.dataset.eventType = row.event_type;
+      marker.textContent = meta.icon;
+      type.textContent = meta.label;
+      time.dateTime = row.occurred_on;
+      time.textContent = formatMedicalDate(row.occurred_on);
+      title.textContent = row.title;
+
+      const detailParts = [];
+      if (row.dose) detailParts.push(`新剂量：${row.dose}`);
+      if (row.frequency) {
+        const schedule = parseFrequency(row.frequency);
+        const frequency = schedule
+          ? formatFrequency(schedule.days, schedule.times)
+          : row.frequency;
+        detailParts.push(`新频率：${frequency}`);
+      }
+      details.textContent = detailParts.join(" · ");
+      show(details, detailParts.length > 0);
+      note.textContent = row.note ?? "";
+      show(note, Boolean(row.note));
+
+      deleteButton.addEventListener("click", async () => {
+        if (!window.confirm("确定删除这条医疗记录吗？")) return;
+        deleteButton.disabled = true;
+        const { error } = await supabase.from("medical_history").delete().eq("id", row.id);
+        if (error) {
+          setMessage(elements.medicalMessage, medicalErrorMessage("删除", error), true);
+          deleteButton.disabled = false;
+          return;
+        }
+        await loadMedicalHistory();
+        setMessage(elements.medicalMessage, "已删除");
+      });
+
+      elements.medicalTimeline.append(fragment);
+    }
   }
 
   function renderTotals(rows, allTimeInhaled, allTimeOral) {
@@ -596,6 +740,71 @@ if (!configured) {
     }
   }
 
+  function readMedicalFrequency() {
+    const daysText = elements.medicalFrequencyDays.value.trim();
+    const timesText = elements.medicalFrequencyTimes.value.trim();
+    if (!daysText && !timesText) return { value: null, error: null };
+    if (!daysText || !timesText) {
+      return { value: null, error: "如需记录新频率，请同时填写天数和次数。" };
+    }
+
+    const days = Number(daysText);
+    const times = Number(timesText);
+    if (!validFrequencySchedule(days, times)) {
+      return { value: null, error: "新频率的天数和次数必须是大于 0 的整数。" };
+    }
+    return { value: formatFrequency(days, times), error: null };
+  }
+
+  elements.medicalForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const eventType = selectedMedicalType();
+    const isMedicationChange = eventType === "medication_change";
+    const dose = isMedicationChange ? elements.medicalDose.value.trim() || null : null;
+    const frequencyResult = isMedicationChange
+      ? readMedicalFrequency()
+      : { value: null, error: null };
+
+    if (frequencyResult.error) {
+      setMessage(elements.medicalMessage, frequencyResult.error, true);
+      return;
+    }
+    if (isMedicationChange && !dose && !frequencyResult.value) {
+      setMessage(elements.medicalMessage, "用药调整至少要填写新剂量或新频率。", true);
+      return;
+    }
+
+    elements.medicalSaveButton.disabled = true;
+    elements.medicalSaveButton.textContent = "保存中…";
+    setMessage(elements.medicalMessage, "");
+
+    const payload = {
+      occurred_on: elements.medicalOccurredOn.value,
+      event_type: eventType,
+      title: elements.medicalTitle.value.trim(),
+      dose,
+      frequency: frequencyResult.value,
+      note: elements.medicalNote.value.trim() || null,
+    };
+    const { error } = await supabase.from("medical_history").insert(payload);
+
+    elements.medicalSaveButton.disabled = false;
+    elements.medicalSaveButton.textContent = "保存医疗记录";
+    if (error) {
+      setMessage(elements.medicalMessage, medicalErrorMessage("保存", error), true);
+      return;
+    }
+
+    elements.medicalTitle.value = "";
+    elements.medicalDose.value = "";
+    elements.medicalFrequencyDays.value = "";
+    elements.medicalFrequencyTimes.value = "";
+    elements.medicalNote.value = "";
+    elements.medicalOccurredOn.value = chicagoDateKey(new Date());
+    await loadMedicalHistory();
+    setMessage(elements.medicalMessage, "已保存到医疗时间轴");
+  });
+
   elements.loginForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     const formData = new FormData(elements.loginForm);
@@ -707,6 +916,7 @@ if (!configured) {
   });
 
   elements.refresh.addEventListener("click", loadRecords);
+  elements.medicalRefresh.addEventListener("click", loadMedicalHistory);
   elements.recordFilter.addEventListener("change", () => {
     currentPage = 1;
     renderRecordsPage();

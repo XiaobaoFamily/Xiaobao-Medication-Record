@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#305f59" />
-    <meta name="description" content="安全、简单地记录小宝的用药与行为事件。" />
+    <meta name="description" content="记录小宝的用药、日常护理与医疗事件。" />
     <meta name="apple-mobile-web-app-title" content="小宝大事记" />
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" href="./icons/favicon-32.png" type="image/png" sizes="32x32" />
@@ -18,7 +18,7 @@
         <div class="brand">
           <img class="site-logo" src="./icons/icon-192.png" alt="小宝" width="72" height="72" />
           <div>
-            <p class="eyebrow">MEDICATION RECORD</p>
+            <p class="eyebrow">XIAOBAO RECORD</p>
             <h1>小宝大事记</h1>
             <p id="today-label" class="muted"></p>
           </div>
@@ -230,6 +230,72 @@
           </nav>
         </section>
 
+        <section class="medical-panel hidden" data-tab-panel="medical" aria-label="医疗记录">
+          <section class="card medical-entry-card" aria-labelledby="medical-entry-title">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">MEDICAL HISTORY</p>
+                <h2 id="medical-entry-title">新增医疗记录</h2>
+              </div>
+              <span id="medical-sync-state" class="sync-state">已同步</span>
+            </div>
+
+            <form id="medical-form" class="record-form">
+              <fieldset>
+                <legend>类型</legend>
+                <div class="segmented medical-segmented">
+                  <label><input type="radio" name="medical_type" value="vaccine" checked /><span>疫苗</span></label>
+                  <label><input type="radio" name="medical_type" value="illness" /><span>疾病</span></label>
+                  <label><input type="radio" name="medical_type" value="medication_change" /><span>用药调整</span></label>
+                </div>
+              </fieldset>
+
+              <div class="form-grid">
+                <label>
+                  <span>日期</span>
+                  <input id="medical-occurred-on" name="occurred_on" type="date" required />
+                </label>
+                <label>
+                  <span id="medical-title-label">疫苗名称</span>
+                  <input id="medical-title" name="title" placeholder="例如：狂犬疫苗" required />
+                </label>
+                <label id="medical-dose-field" class="hidden">
+                  <span>新剂量 <small>（可选）</small></span>
+                  <input id="medical-dose" name="dose" placeholder="例如：220 mcg" />
+                </label>
+                <div id="medical-frequency-field" class="form-field hidden">
+                  <span class="field-label">新频率 <small>（可选）</small></span>
+                  <div class="frequency-control">
+                    <span>每</span>
+                    <input id="medical-frequency-days" name="medical_frequency_days" type="number" min="1" step="1" inputmode="numeric" placeholder="X" aria-label="新频率的间隔天数" />
+                    <span>天</span>
+                    <input id="medical-frequency-times" name="medical_frequency_times" type="number" min="1" step="1" inputmode="numeric" placeholder="X" aria-label="新频率的用药次数" />
+                    <span>次</span>
+                  </div>
+                </div>
+                <label class="wide">
+                  <span>备注 <small>（可选）</small></span>
+                  <textarea id="medical-note" name="note" rows="3" placeholder="例如：接种医院、症状、医生建议或调整原因……"></textarea>
+                </label>
+              </div>
+              <button id="medical-save-button" class="primary save-button" type="submit">保存医疗记录</button>
+              <p id="medical-message" class="form-message" role="status"></p>
+            </form>
+          </section>
+
+          <section class="card medical-timeline-card" aria-labelledby="medical-timeline-title">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">TIMELINE</p>
+                <h2 id="medical-timeline-title">医疗时间轴</h2>
+              </div>
+              <button id="medical-refresh" class="text-button" type="button">刷新</button>
+            </div>
+            <div id="medical-timeline" class="medical-timeline" aria-live="polite"></div>
+            <p id="medical-empty-state" class="empty hidden">还没有医疗记录。</p>
+          </section>
+        </section>
+
         <nav class="bottom-tabs" aria-label="主要页面">
           <button id="dashboard-tab" class="tab-button" type="button" aria-pressed="false">
             <span class="tab-icon" aria-hidden="true">览</span>
@@ -238,6 +304,10 @@
           <button id="record-tab" class="tab-button active" type="button" aria-pressed="true">
             <span class="tab-icon" aria-hidden="true">＋</span>
             <span>记录</span>
+          </button>
+          <button id="medical-tab" class="tab-button" type="button" aria-pressed="false">
+            <span class="tab-icon" aria-hidden="true">医</span>
+            <span>医疗</span>
           </button>
         </nav>
       </div>
@@ -255,6 +325,22 @@
           <p class="record-note"></p>
         </div>
         <button class="delete-button" type="button" aria-label="删除这条记录">删除</button>
+      </article>
+    </template>
+
+    <template id="medical-timeline-template">
+      <article class="timeline-item">
+        <div class="timeline-marker" aria-hidden="true"></div>
+        <div class="timeline-content">
+          <div class="timeline-meta">
+            <span class="timeline-type"></span>
+            <time></time>
+          </div>
+          <h3 class="timeline-title"></h3>
+          <p class="timeline-details"></p>
+          <p class="timeline-note"></p>
+        </div>
+        <button class="delete-button timeline-delete" type="button" aria-label="删除这条医疗记录">删除</button>
       </article>
     </template>
 

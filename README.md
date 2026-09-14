@@ -1,6 +1,6 @@
-# 小宝用药记录 PWA
+# 小宝大事记 PWA
 
-一个无需构建步骤、可以直接部署到 GitHub Pages 的静态 PWA。数据由 Supabase 保存，登录使用邮箱和密码。
+一个无需构建步骤、可以直接部署到 GitHub Pages 的静态 PWA。可记录用药、护理和医疗时间轴，数据由 Supabase 保存，登录使用邮箱和密码。
 
 ## 首次设置
 
@@ -36,6 +36,15 @@ python3 -m http.server 8080
 
 `total` 没有存进表，而是按事件实时统计，避免补录或删除后数字失真。
 
+医疗时间轴使用独立的 `medical_history` 表：
+
+- `occurred_on`：疫苗、疾病或用药调整发生的日期
+- `event_type`：`vaccine`、`illness` 或 `medication_change`
+- `title`：疫苗名称、疾病名称或药物名称
+- `dose`：调整后的剂量，仅用于用药调整
+- `frequency`：调整后的频率，仅用于用药调整
+- `note`：医院、症状、医生建议或调整原因等补充信息
+
 ### 为现有数据库加入 frequency
 
 如果数据库是在加入 `frequency` 之前创建的，请先在 Supabase **SQL Editor** 中运行一次
@@ -45,6 +54,11 @@ python3 -m http.server 8080
 
 在部署包含刷牙、排泄和口服药提醒的版本前，请在 Supabase **SQL Editor** 中运行一次
 `supabase/add_care_types.sql`。
+
+### 为现有数据库加入医疗时间轴
+
+部署包含“医疗”Tab 的版本前，请在 Supabase **SQL Editor** 中运行一次
+`supabase/add_medical_history.sql`。该脚本会创建独立的医疗记录表，并沿用现有两位照护者的共享访问权限。
 
 ## 当前边界
 

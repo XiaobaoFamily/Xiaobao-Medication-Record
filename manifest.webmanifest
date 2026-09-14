@@ -1,7 +1,7 @@
 {
   "name": "小宝大事记",
   "short_name": "小宝大事记",
-  "description": "记录小宝的吸入药、口服药与行为事件。",
+  "description": "记录小宝的用药、日常护理与医疗事件。",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

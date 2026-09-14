@@ -108,16 +108,16 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); box-sha
 fieldset { margin: 0 0 24px; padding: 0; border: 0; }
 .segmented { display: grid; grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); gap: 8px; padding: 5px; border-radius: 15px; background: var(--soft); }
 .segmented label { cursor: pointer; }
-.segmented input { position: absolute; opacity: 0; pointer-events: none; }
+.segmented input { position: absolute; width: 1px; height: 1px; min-height: 0; margin: 0; padding: 0; clip-path: inset(50%); opacity: 0; pointer-events: none; }
 .segmented span { display: grid; min-height: 43px; place-items: center; margin: 0; border-radius: 11px; color: var(--muted); font-size: 0.85rem; }
 .segmented input:checked + span { background: white; color: var(--ink); box-shadow: 0 3px 12px rgba(24, 51, 47, 0.08); }
 .segmented input:focus-visible + span { outline: 3px solid rgba(48, 95, 89, 0.2); }
 .record-form fieldset, .segmented, .form-grid, .form-grid > label, .form-grid > .form-field, .dose-control, .frequency-control { width: 100%; max-width: 100%; min-width: 0; }
 .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
 .form-grid input, .form-grid select, .form-grid textarea { min-width: 0; max-width: 100%; }
-input[type="datetime-local"] { display: block; width: 100%; min-width: 0; max-width: 100%; overflow: hidden; -webkit-appearance: none; appearance: none; font-size: 16px; }
-input[type="datetime-local"]::-webkit-date-and-time-value { min-width: 0; text-align: left; }
-input[type="datetime-local"]::-webkit-datetime-edit { min-width: 0; padding: 0; }
+input[type="datetime-local"], input[type="date"] { display: block; width: 100%; min-width: 0; max-width: 100%; overflow: hidden; -webkit-appearance: none; appearance: none; font-size: 16px; }
+input[type="datetime-local"]::-webkit-date-and-time-value, input[type="date"]::-webkit-date-and-time-value { min-width: 0; text-align: left; }
+input[type="datetime-local"]::-webkit-datetime-edit, input[type="date"]::-webkit-datetime-edit { min-width: 0; padding: 0; }
 .wide { grid-column: 1 / -1; }
 .dose-control { display: grid; grid-template-columns: 1fr 95px; }
 .dose-control input { border-radius: 12px 0 0 12px; }
@@ -129,6 +129,29 @@ input[type="datetime-local"]::-webkit-datetime-edit { min-width: 0; padding: 0; 
 .view-record-button { width: 100%; margin-top: 10px; }
 .form-message { min-height: 20px; margin: 10px 0 0; color: var(--accent); font-size: 0.82rem; }
 .form-message.error { color: #a53f38; }
+
+.medical-panel { display: grid; gap: 20px; margin: 34px 0 44px; }
+.medical-entry-card, .medical-timeline-card { width: 100%; max-width: 100%; min-width: 0; }
+.medical-timeline { position: relative; margin-top: 22px; }
+.medical-timeline::before { position: absolute; top: 18px; bottom: 18px; left: 17px; width: 2px; background: var(--line); content: ""; }
+.timeline-item { position: relative; display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; gap: 14px; align-items: start; padding: 0 0 28px; }
+.timeline-item:last-child { padding-bottom: 0; }
+.timeline-marker { position: relative; z-index: 1; display: grid; width: 36px; height: 36px; place-items: center; border: 5px solid white; border-radius: 50%; background: #8fb9ae; box-shadow: 0 0 0 1px var(--line); }
+.timeline-item[data-event-type="vaccine"] .timeline-marker { background: #72a99b; }
+.timeline-item[data-event-type="illness"] .timeline-marker { background: #cc775f; }
+.timeline-item[data-event-type="medication_change"] .timeline-marker { background: #d0a658; }
+.timeline-content { min-width: 0; padding-top: 2px; }
+.timeline-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.timeline-meta time { color: var(--muted); font-size: 0.78rem; }
+.timeline-type { padding: 4px 8px; border-radius: 99px; background: var(--soft); color: var(--accent); font-size: 0.72rem; font-weight: 800; }
+.timeline-item[data-event-type="illness"] .timeline-type { background: #fff0e9; color: #9b3f2f; }
+.timeline-item[data-event-type="medication_change"] .timeline-type { background: var(--warm); color: #795a2e; }
+.timeline-title { margin: 8px 0 0; font: 700 1.15rem/1.3 Georgia, serif; }
+.timeline-details, .timeline-note { margin: 7px 0 0; font-size: 0.84rem; line-height: 1.55; }
+.timeline-details { color: var(--accent); font-weight: 750; }
+.timeline-note { color: var(--muted); white-space: pre-wrap; }
+.timeline-delete { margin-top: 1px; }
+.timeline-item:hover .delete-button, .timeline-item .delete-button:focus { opacity: 1; }
 
 .history { padding: 0 clamp(4px, 2vw, 14px); }
 .history-actions { display: flex; align-items: center; gap: 12px; }
@@ -151,7 +174,7 @@ input[type="datetime-local"]::-webkit-datetime-edit { min-width: 0; padding: 0; 
 .page-button:last-child { justify-self: stretch; }
 code { padding: 2px 6px; border-radius: 5px; background: var(--soft); }
 
-.bottom-tabs { position: fixed; z-index: 20; left: 50%; bottom: 18px; display: grid; width: min(420px, calc(100% - 28px)); grid-template-columns: repeat(2, 1fr); gap: 6px; padding: 7px; transform: translateX(-50%); border: 1px solid rgba(48, 95, 89, 0.14); border-radius: 20px; background: rgba(255, 255, 255, 0.94); box-shadow: 0 12px 36px rgba(29, 67, 60, 0.18); backdrop-filter: blur(14px); }
+.bottom-tabs { position: fixed; z-index: 20; left: 50%; bottom: 18px; display: grid; width: min(520px, calc(100% - 28px)); grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 7px; transform: translateX(-50%); border: 1px solid rgba(48, 95, 89, 0.14); border-radius: 20px; background: rgba(255, 255, 255, 0.94); box-shadow: 0 12px 36px rgba(29, 67, 60, 0.18); backdrop-filter: blur(14px); }
 .tab-button { display: flex; min-height: 54px; align-items: center; justify-content: center; gap: 8px; border: 0; border-radius: 14px; background: transparent; color: var(--muted); font-weight: 800; }
 .tab-button.active { background: var(--accent); color: white; box-shadow: 0 6px 16px rgba(48, 95, 89, 0.22); }
 .tab-icon { display: grid; width: 25px; height: 25px; place-items: center; border-radius: 9px; background: var(--soft); color: var(--accent); font-size: 0.78rem; }
@@ -175,6 +198,8 @@ code { padding: 2px 6px; border-radius: 5px; background: var(--soft); }
   .history .section-heading { align-items: flex-end; }
   .history-actions { gap: 8px; }
   .filter-select { max-width: 126px; }
+  .timeline-item { grid-template-columns: 36px minmax(0, 1fr); }
+  .timeline-delete { grid-column: 2; justify-self: start; margin-top: -18px; }
 }
 
 @media (display-mode: standalone) {
