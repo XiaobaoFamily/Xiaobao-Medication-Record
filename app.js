@@ -34,6 +34,7 @@ const elements = {
   frequencyField: $("#frequency-field"),
   frequencyDays: $("#frequency-days"),
   frequencyTimes: $("#frequency-times"),
+  medicationHistoryHint: $("#medication-history-hint"),
   bowelMovement: $("#bowel-movement"),
   bowelMovementField: $("#bowel-movement-field"),
   urineAmount: $("#urine-amount"),
@@ -57,11 +58,6 @@ const elements = {
   medicalOccurredOn: $("#medical-occurred-on"),
   medicalTitleLabel: $("#medical-title-label"),
   medicalTitle: $("#medical-title"),
-  medicalDoseField: $("#medical-dose-field"),
-  medicalDose: $("#medical-dose"),
-  medicalFrequencyField: $("#medical-frequency-field"),
-  medicalFrequencyDays: $("#medical-frequency-days"),
-  medicalFrequencyTimes: $("#medical-frequency-times"),
   medicalNote: $("#medical-note"),
   medicalSaveButton: $("#medical-save-button"),
   medicalMessage: $("#medical-message"),
@@ -91,7 +87,7 @@ const typeMeta = {
 const medicalTypeMeta = {
   vaccine: { label: "疫苗", icon: "苗", titleLabel: "疫苗名称", placeholder: "例如：狂犬疫苗" },
   illness: { label: "疾病", icon: "病", titleLabel: "疾病或症状", placeholder: "例如：哮喘" },
-  medication_change: { label: "用药调整", icon: "药", titleLabel: "药物名称", placeholder: "例如：Fluticasone" },
+  medication_change: { label: "用药变化", icon: "药" },
 };
 
 const medicationDefaults = {
@@ -176,11 +172,8 @@ function selectedMedicalType() {
 
 function applyMedicalType(type) {
   const meta = medicalTypeMeta[type] ?? medicalTypeMeta.vaccine;
-  const isMedicationChange = type === "medication_change";
   elements.medicalTitleLabel.textContent = meta.titleLabel;
   elements.medicalTitle.placeholder = meta.placeholder;
-  show(elements.medicalDoseField, isMedicationChange);
-  show(elements.medicalFrequencyField, isMedicationChange);
 }
 
 function chicagoDateKey(date) {
@@ -268,6 +261,7 @@ function applyTypeDefaults(type) {
   show(elements.medicineField, isMedication);
   show(elements.doseField, isMedication);
   show(elements.frequencyField, isMedication);
+  show(elements.medicationHistoryHint, isMedication);
   show(elements.bowelMovementField, isElimination);
   show(elements.urineAmountField, isElimination);
   elements.medicine.required = isMedication;
@@ -808,39 +802,9 @@ if (!configured) {
     }
   }
 
-  function readMedicalFrequency() {
-    const daysText = elements.medicalFrequencyDays.value.trim();
-    const timesText = elements.medicalFrequencyTimes.value.trim();
-    if (!daysText && !timesText) return { value: null, error: null };
-    if (!daysText || !timesText) {
-      return { value: null, error: "如需记录新频率，请同时填写天数和次数。" };
-    }
-
-    const days = Number(daysText);
-    const times = Number(timesText);
-    if (!validFrequencySchedule(days, times)) {
-      return { value: null, error: "新频率的天数和次数必须是大于 0 的整数。" };
-    }
-    return { value: formatFrequency(days, times), error: null };
-  }
-
   elements.medicalForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     const eventType = selectedMedicalType();
-    const isMedicationChange = eventType === "medication_change";
-    const dose = isMedicationChange ? elements.medicalDose.value.trim() || null : null;
-    const frequencyResult = isMedicationChange
-      ? readMedicalFrequency()
-      : { value: null, error: null };
-
-    if (frequencyResult.error) {
-      setMessage(elements.medicalMessage, frequencyResult.error, true);
-      return;
-    }
-    if (isMedicationChange && !dose && !frequencyResult.value) {
-      setMessage(elements.medicalMessage, "用药调整至少要填写新剂量或新频率。", true);
-      return;
-    }
 
     elements.medicalSaveButton.disabled = true;
     elements.medicalSaveButton.textContent = "保存中…";
@@ -850,8 +814,8 @@ if (!configured) {
       occurred_on: elements.medicalOccurredOn.value,
       event_type: eventType,
       title: elements.medicalTitle.value.trim(),
-      dose,
-      frequency: frequencyResult.value,
+      dose: null,
+      frequency: null,
       note: elements.medicalNote.value.trim() || null,
     };
     const { error } = await supabase.from("medical_history").insert(payload);
@@ -864,9 +828,6 @@ if (!configured) {
     }
 
     elements.medicalTitle.value = "";
-    elements.medicalDose.value = "";
-    elements.medicalFrequencyDays.value = "";
-    elements.medicalFrequencyTimes.value = "";
     elements.medicalNote.value = "";
     elements.medicalOccurredOn.value = chicagoDateKey(new Date());
     elements.medicalMonthFilter.value = "all";
@@ -979,9 +940,18 @@ if (!configured) {
       };
     }
     applyTypeDefaults(type);
-    setMessage(elements.formMessage, "已保存");
+    setMessage(
+      elements.formMessage,
+      isMedication ? "已保存，系统已检查并同步用药变化" : "已保存",
+    );
     currentPage = 1;
-    await loadRecords();
+    if (isMedication) {
+      elements.medicalMonthFilter.value = "all";
+      medicalCurrentPage = 1;
+      await Promise.all([loadRecords(), loadMedicalHistory()]);
+    } else {
+      await loadRecords();
+    }
     show(elements.viewSavedRecord, true);
   });
 

@@ -151,6 +151,10 @@
               </div>
             </fieldset>
 
+            <p id="medication-history-hint" class="form-hint">
+              新增或调整药名、剂量、剂量单位或频率时，直接修改下方内容；保存后会自动加入医疗时间轴。
+            </p>
+
             <div class="form-grid">
               <label>
                 <span>时间</span>
@@ -246,9 +250,12 @@
                 <div class="segmented medical-segmented">
                   <label><input type="radio" name="medical_type" value="vaccine" checked /><span>疫苗</span></label>
                   <label><input type="radio" name="medical_type" value="illness" /><span>疾病</span></label>
-                  <label><input type="radio" name="medical_type" value="medication_change" /><span>用药调整</span></label>
                 </div>
               </fieldset>
+
+              <p class="form-hint">
+                疫苗和疾病在这里手动记录；用药变化请在“记录”中填写，系统会自动加入下方时间轴。
+              </p>
 
               <div class="form-grid">
                 <label>
@@ -259,20 +266,6 @@
                   <span id="medical-title-label">疫苗名称</span>
                   <input id="medical-title" name="title" placeholder="例如：狂犬疫苗" required />
                 </label>
-                <label id="medical-dose-field" class="hidden">
-                  <span>新剂量 <small>（可选）</small></span>
-                  <input id="medical-dose" name="dose" placeholder="例如：220 mcg" />
-                </label>
-                <div id="medical-frequency-field" class="form-field hidden">
-                  <span class="field-label">新频率 <small>（可选）</small></span>
-                  <div class="frequency-control">
-                    <span>每</span>
-                    <input id="medical-frequency-days" name="medical_frequency_days" type="number" min="1" step="1" inputmode="numeric" placeholder="X" aria-label="新频率的间隔天数" />
-                    <span>天</span>
-                    <input id="medical-frequency-times" name="medical_frequency_times" type="number" min="1" step="1" inputmode="numeric" placeholder="X" aria-label="新频率的用药次数" />
-                    <span>次</span>
-                  </div>
-                </div>
                 <label class="wide">
                   <span>备注 <small>（可选）</small></span>
                   <textarea id="medical-note" name="note" rows="3" placeholder="例如：接种医院、症状、医生建议或调整原因……"></textarea>

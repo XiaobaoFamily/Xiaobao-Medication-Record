@@ -1,4 +1,4 @@
-const CACHE_NAME = "xiaobao-medication-v17";
+const CACHE_NAME = "xiaobao-medication-v18";
 const APP_SHELL = [
   "./",
   "./index.html",
