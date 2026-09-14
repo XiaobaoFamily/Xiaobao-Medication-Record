@@ -1,5 +1,5 @@
 -- 在现有 Supabase 项目的 Dashboard > SQL Editor 中执行整份文件。
--- 新增独立的医疗时间轴，不会改变 medication_records 或现有统计。
+-- 新增独立的医疗时间轴，并让 medication_records 的方案变化自动写入时间轴；不会改变现有用药统计。
 
 create extension if not exists pgcrypto;
 
@@ -11,6 +11,7 @@ create table if not exists public.medical_history (
   title text not null check (length(btrim(title)) > 0),
   dose text check (dose is null or length(btrim(dose)) > 0),
   frequency text check (frequency is null or length(btrim(frequency)) > 0),
+  source_medication_record_id uuid references public.medication_records(id) on delete set null,
   note text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -21,8 +22,17 @@ create table if not exists public.medical_history (
   )
 );
 
+-- 兼容已运行过早期版本脚本的项目。
+alter table public.medical_history
+add column if not exists source_medication_record_id uuid
+references public.medication_records(id) on delete set null;
+
 create index if not exists medical_history_user_date_idx
   on public.medical_history (user_id, occurred_on desc, created_at desc);
+
+create unique index if not exists medical_history_source_record_idx
+  on public.medical_history (source_medication_record_id)
+  where source_medication_record_id is not null;
 
 create or replace function public.set_updated_at()
 returns trigger
@@ -40,6 +50,93 @@ drop trigger if exists medical_history_set_updated_at on public.medical_history;
 create trigger medical_history_set_updated_at
 before update on public.medical_history
 for each row execute function public.set_updated_at();
+
+create or replace function public.record_medication_change_in_history()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  previous_record public.medication_records%rowtype;
+  medication_label text;
+  medicine_changed boolean;
+  dose_changed boolean;
+  frequency_changed boolean;
+begin
+  if new.type not in ('inhaled', 'oral') then
+    return new;
+  end if;
+
+  select record.*
+  into previous_record
+  from public.medication_records as record
+  where record.id <> new.id
+    and record.type = new.type
+    and record.occurred_at <= new.occurred_at
+  order by record.occurred_at desc, record.created_at desc, record.id desc
+  limit 1;
+
+  if not found then
+    return new;
+  end if;
+
+  medicine_changed := previous_record.medicine is distinct from new.medicine;
+  dose_changed := medicine_changed
+    or previous_record.dose_amount is distinct from new.dose_amount
+    or previous_record.dose_unit is distinct from new.dose_unit;
+  frequency_changed := medicine_changed
+    or previous_record.frequency is distinct from new.frequency;
+
+  if not dose_changed and not frequency_changed then
+    return new;
+  end if;
+
+  medication_label := case new.type when 'inhaled' then '吸入药' else '口服药' end;
+
+  insert into public.medical_history (
+    user_id,
+    occurred_on,
+    event_type,
+    title,
+    dose,
+    frequency,
+    source_medication_record_id,
+    note
+  )
+  values (
+    new.user_id,
+    (new.occurred_at at time zone 'America/Chicago')::date,
+    'medication_change',
+    format('%s：%s', medication_label, new.medicine),
+    case when dose_changed then concat(new.dose_amount, ' ', new.dose_unit) else null end,
+    case when frequency_changed then new.frequency else null end,
+    new.id,
+    format(
+      '由%s记录自动生成。原方案：%s，%s %s，%s；新方案：%s，%s %s，%s。',
+      medication_label,
+      previous_record.medicine,
+      previous_record.dose_amount,
+      previous_record.dose_unit,
+      previous_record.frequency,
+      new.medicine,
+      new.dose_amount,
+      new.dose_unit,
+      new.frequency
+    )
+  )
+  on conflict (source_medication_record_id)
+    where source_medication_record_id is not null
+    do nothing;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists medication_records_add_history on public.medication_records;
+create trigger medication_records_add_history
+after insert on public.medication_records
+for each row execute function public.record_medication_change_in_history();
 
 alter table public.medical_history enable row level security;
 
@@ -98,3 +195,79 @@ using (
     '45d59985-1e2c-424c-841a-18857c9a21a8'::uuid
   )
 );
+-- 一次性补齐已有用药记录中的方案变化；来源记录 ID 保证重复运行不会重复添加。
+with ordered_medication as (
+  select
+    record.*,
+    lag(record.id) over medication_order as previous_id,
+    lag(record.medicine) over medication_order as previous_medicine,
+    lag(record.dose_amount) over medication_order as previous_dose_amount,
+    lag(record.dose_unit) over medication_order as previous_dose_unit,
+    lag(record.frequency) over medication_order as previous_frequency
+  from public.medication_records as record
+  where record.type in ('inhaled', 'oral')
+  window medication_order as (
+    partition by record.type
+    order by record.occurred_at, record.created_at, record.id
+  )
+),
+changed_medication as (
+  select
+    ordered.*,
+    ordered.previous_medicine is distinct from ordered.medicine as medicine_changed,
+    (
+      ordered.previous_dose_amount is distinct from ordered.dose_amount
+      or ordered.previous_dose_unit is distinct from ordered.dose_unit
+    ) as dose_changed,
+    ordered.previous_frequency is distinct from ordered.frequency as frequency_changed
+  from ordered_medication as ordered
+  where ordered.previous_id is not null
+)
+insert into public.medical_history (
+  user_id,
+  occurred_on,
+  event_type,
+  title,
+  dose,
+  frequency,
+  source_medication_record_id,
+  note
+)
+select
+  changed.user_id,
+  (changed.occurred_at at time zone 'America/Chicago')::date,
+  'medication_change',
+  format(
+    '%s：%s',
+    case changed.type when 'inhaled' then '吸入药' else '口服药' end,
+    changed.medicine
+  ),
+  case
+    when changed.medicine_changed or changed.dose_changed
+      then concat(changed.dose_amount, ' ', changed.dose_unit)
+    else null
+  end,
+  case
+    when changed.medicine_changed or changed.frequency_changed then changed.frequency
+    else null
+  end,
+  changed.id,
+  format(
+    '由历史%s记录自动补充。原方案：%s，%s %s，%s；新方案：%s，%s %s，%s。',
+    case changed.type when 'inhaled' then '吸入药' else '口服药' end,
+    changed.previous_medicine,
+    changed.previous_dose_amount,
+    changed.previous_dose_unit,
+    changed.previous_frequency,
+    changed.medicine,
+    changed.dose_amount,
+    changed.dose_unit,
+    changed.frequency
+  )
+from changed_medication as changed
+where changed.medicine_changed
+  or changed.dose_changed
+  or changed.frequency_changed
+on conflict (source_medication_record_id)
+  where source_medication_record_id is not null
+  do nothing;
