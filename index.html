@@ -148,6 +148,8 @@
                 <label><input type="radio" name="type" value="behavior" /><span>小宝行为</span></label>
                 <label><input type="radio" name="type" value="brushing" /><span>刷牙</span></label>
                 <label><input type="radio" name="type" value="elimination" /><span>排泄</span></label>
+                <label><input type="radio" name="type" value="vaccine" /><span>疫苗</span></label>
+                <label><input type="radio" name="type" value="illness" /><span>疾病</span></label>
               </div>
             </fieldset>
 
@@ -163,6 +165,10 @@
               <label id="medicine-field">
                 <span>药物</span>
                 <input id="medicine" name="medicine" value="Fluticasone" required />
+              </label>
+              <label id="record-medical-title-field" class="hidden">
+                <span id="record-medical-title-label">疫苗名称</span>
+                <input id="record-medical-title" name="medical_title" placeholder="例如：狂犬疫苗" />
               </label>
               <label id="dose-field">
                 <span>剂量</span>
@@ -235,47 +241,6 @@
         </section>
 
         <section class="medical-panel hidden" data-tab-panel="medical" aria-label="医疗记录">
-          <section class="card medical-entry-card" aria-labelledby="medical-entry-title">
-            <div class="section-heading">
-              <div>
-                <p class="eyebrow">MEDICAL HISTORY</p>
-                <h2 id="medical-entry-title">新增医疗记录</h2>
-              </div>
-              <span id="medical-sync-state" class="sync-state">已同步</span>
-            </div>
-
-            <form id="medical-form" class="record-form">
-              <fieldset>
-                <legend>类型</legend>
-                <div class="segmented medical-segmented">
-                  <label><input type="radio" name="medical_type" value="vaccine" checked /><span>疫苗</span></label>
-                  <label><input type="radio" name="medical_type" value="illness" /><span>疾病</span></label>
-                </div>
-              </fieldset>
-
-              <p class="form-hint">
-                疫苗和疾病在这里手动记录；用药变化请在“记录”中填写，系统会自动加入下方时间轴。
-              </p>
-
-              <div class="form-grid">
-                <label>
-                  <span>日期</span>
-                  <input id="medical-occurred-on" name="occurred_on" type="date" required />
-                </label>
-                <label>
-                  <span id="medical-title-label">疫苗名称</span>
-                  <input id="medical-title" name="title" placeholder="例如：狂犬疫苗" required />
-                </label>
-                <label class="wide">
-                  <span>备注 <small>（可选）</small></span>
-                  <textarea id="medical-note" name="note" rows="3" placeholder="例如：接种医院、症状、医生建议或调整原因……"></textarea>
-                </label>
-              </div>
-              <button id="medical-save-button" class="primary save-button" type="submit">保存医疗记录</button>
-              <p id="medical-message" class="form-message" role="status"></p>
-            </form>
-          </section>
-
           <section class="card medical-timeline-card" aria-labelledby="medical-timeline-title">
             <div class="section-heading">
               <div>
@@ -286,11 +251,13 @@
                 <select id="medical-month-filter" class="filter-select" aria-label="筛选医疗记录月份">
                   <option value="all">全部月份</option>
                 </select>
+                <span id="medical-sync-state" class="sync-state">已同步</span>
                 <button id="medical-refresh" class="text-button" type="button">刷新</button>
               </div>
             </div>
             <div id="medical-timeline" class="medical-timeline" aria-live="polite"></div>
             <p id="medical-empty-state" class="empty hidden">还没有医疗记录。</p>
+            <p id="medical-message" class="form-message" role="status"></p>
             <nav id="medical-pagination" class="pagination hidden" aria-label="医疗时间轴分页">
               <button id="medical-previous-page" class="secondary page-button" type="button">上一页</button>
               <span id="medical-page-status" aria-live="polite">第 1 / 1 页</span>

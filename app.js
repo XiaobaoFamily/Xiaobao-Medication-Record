@@ -27,6 +27,9 @@ const elements = {
   occurredAt: $("#occurred-at"),
   medicine: $("#medicine"),
   medicineField: $("#medicine-field"),
+  recordMedicalTitle: $("#record-medical-title"),
+  recordMedicalTitleField: $("#record-medical-title-field"),
+  recordMedicalTitleLabel: $("#record-medical-title-label"),
   doseField: $("#dose-field"),
   doseAmount: $("#dose-amount"),
   doseUnit: $("#dose-unit"),
@@ -54,12 +57,6 @@ const elements = {
   dashboardTab: $("#dashboard-tab"),
   recordTab: $("#record-tab"),
   medicalTab: $("#medical-tab"),
-  medicalForm: $("#medical-form"),
-  medicalOccurredOn: $("#medical-occurred-on"),
-  medicalTitleLabel: $("#medical-title-label"),
-  medicalTitle: $("#medical-title"),
-  medicalNote: $("#medical-note"),
-  medicalSaveButton: $("#medical-save-button"),
   medicalMessage: $("#medical-message"),
   medicalSyncState: $("#medical-sync-state"),
   medicalTimeline: $("#medical-timeline"),
@@ -87,6 +84,7 @@ const typeMeta = {
 const medicalTypeMeta = {
   vaccine: { label: "疫苗", icon: "苗", titleLabel: "疫苗名称", placeholder: "例如：狂犬疫苗" },
   illness: { label: "疾病", icon: "病", titleLabel: "疾病或症状", placeholder: "例如：哮喘" },
+  medication_start: { label: "新增用药", icon: "新" },
   medication_change: { label: "用药变化", icon: "药" },
 };
 
@@ -164,16 +162,6 @@ function setMessage(element, message, isError = false) {
 
 function selectedType() {
   return new FormData(elements.recordForm).get("type");
-}
-
-function selectedMedicalType() {
-  return new FormData(elements.medicalForm).get("medical_type");
-}
-
-function applyMedicalType(type) {
-  const meta = medicalTypeMeta[type] ?? medicalTypeMeta.vaccine;
-  elements.medicalTitleLabel.textContent = meta.titleLabel;
-  elements.medicalTitle.placeholder = meta.placeholder;
 }
 
 function chicagoDateKey(date) {
@@ -258,18 +246,27 @@ function updateMedicationDefaults(rows) {
 function applyTypeDefaults(type) {
   const isMedication = type === "inhaled" || type === "oral";
   const isElimination = type === "elimination";
+  const isMedicalEvent = type === "vaccine" || type === "illness";
   show(elements.medicineField, isMedication);
+  show(elements.recordMedicalTitleField, isMedicalEvent);
   show(elements.doseField, isMedication);
   show(elements.frequencyField, isMedication);
   show(elements.medicationHistoryHint, isMedication);
   show(elements.bowelMovementField, isElimination);
   show(elements.urineAmountField, isElimination);
   elements.medicine.required = isMedication;
+  elements.recordMedicalTitle.required = isMedicalEvent;
   elements.doseAmount.required = isMedication;
   elements.frequencyDays.required = isMedication;
   elements.frequencyTimes.required = isMedication;
   elements.bowelMovement.required = isElimination;
   elements.urineAmount.required = isElimination;
+
+  if (isMedicalEvent) {
+    const meta = medicalTypeMeta[type];
+    elements.recordMedicalTitleLabel.textContent = meta.titleLabel;
+    elements.recordMedicalTitle.placeholder = meta.placeholder;
+  }
 
   if (isMedication) {
     const defaults = medicationDefaults[type];
@@ -285,7 +282,6 @@ function applyTypeDefaults(type) {
 }
 
 elements.occurredAt.value = localDateTimeValue();
-elements.medicalOccurredOn.value = chicagoDateKey(new Date());
 elements.recordForm?.addEventListener("change", (event) => {
   if (event.target.name === "type") applyTypeDefaults(event.target.value);
   if (event.target.name === "occurred_at") {
@@ -294,11 +290,7 @@ elements.recordForm?.addEventListener("change", (event) => {
 });
 elements.frequencyDays.addEventListener("input", syncFrequencyValue);
 elements.frequencyTimes.addEventListener("input", syncFrequencyValue);
-elements.medicalForm.addEventListener("change", (event) => {
-  if (event.target.name === "medical_type") applyMedicalType(event.target.value);
-});
 applyTypeDefaults(selectedType());
-applyMedicalType(selectedMedicalType());
 setActiveTab(initialTab(), false);
 elements.dashboardTab.addEventListener("click", () => setActiveTab("dashboard"));
 elements.recordTab.addEventListener("click", () => setActiveTab("record"));
@@ -314,6 +306,7 @@ if (!configured) {
   let medicalHistory = [];
   let currentPage = 1;
   let medicalCurrentPage = 1;
+  let lastSavedDestination = "dashboard";
 
   async function renderSession(session) {
     if (session && !allowedUserIds.has(session.user.id)) {
@@ -802,40 +795,6 @@ if (!configured) {
     }
   }
 
-  elements.medicalForm.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const eventType = selectedMedicalType();
-
-    elements.medicalSaveButton.disabled = true;
-    elements.medicalSaveButton.textContent = "保存中…";
-    setMessage(elements.medicalMessage, "");
-
-    const payload = {
-      occurred_on: elements.medicalOccurredOn.value,
-      event_type: eventType,
-      title: elements.medicalTitle.value.trim(),
-      dose: null,
-      frequency: null,
-      note: elements.medicalNote.value.trim() || null,
-    };
-    const { error } = await supabase.from("medical_history").insert(payload);
-
-    elements.medicalSaveButton.disabled = false;
-    elements.medicalSaveButton.textContent = "保存医疗记录";
-    if (error) {
-      setMessage(elements.medicalMessage, medicalErrorMessage("保存", error), true);
-      return;
-    }
-
-    elements.medicalTitle.value = "";
-    elements.medicalNote.value = "";
-    elements.medicalOccurredOn.value = chicagoDateKey(new Date());
-    elements.medicalMonthFilter.value = "all";
-    medicalCurrentPage = 1;
-    await loadMedicalHistory();
-    setMessage(elements.medicalMessage, "已保存到医疗时间轴");
-  });
-
   elements.loginForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     const formData = new FormData(elements.loginForm);
@@ -901,33 +860,51 @@ if (!configured) {
     const type = selectedType();
     const isMedication = type === "inhaled" || type === "oral";
     const isElimination = type === "elimination";
+    const isMedicalEvent = type === "vaccine" || type === "illness";
     elements.saveButton.disabled = true;
     elements.saveButton.textContent = "保存中…";
     show(elements.viewSavedRecord, false);
     setMessage(elements.formMessage, "");
     if (isMedication) syncFrequencyValue();
 
-    const payload = {
-      occurred_at: new Date(elements.occurredAt.value).toISOString(),
-      type,
-      medicine: isMedication ? elements.medicine.value.trim() : null,
-      dose_amount: isMedication ? Number(elements.doseAmount.value) : null,
-      dose_unit: isMedication ? elements.doseUnit.value : null,
-      frequency: isMedication ? elements.frequency.value : null,
-      bowel_movement: isElimination ? elements.bowelMovement.value === "true" : null,
-      urine_amount: isElimination ? Number(elements.urineAmount.value) : null,
-      note: elements.note.value.trim() || null,
-    };
-    const { error } = await supabase.from("medication_records").insert(payload);
+    const occurredAt = new Date(elements.occurredAt.value);
+    const note = elements.note.value.trim() || null;
+    const payload = isMedicalEvent
+      ? {
+          occurred_on: chicagoDateKey(occurredAt),
+          event_type: type,
+          title: elements.recordMedicalTitle.value.trim(),
+          dose: null,
+          frequency: null,
+          note,
+        }
+      : {
+          occurred_at: occurredAt.toISOString(),
+          type,
+          medicine: isMedication ? elements.medicine.value.trim() : null,
+          dose_amount: isMedication ? Number(elements.doseAmount.value) : null,
+          dose_unit: isMedication ? elements.doseUnit.value : null,
+          frequency: isMedication ? elements.frequency.value : null,
+          bowel_movement: isElimination ? elements.bowelMovement.value === "true" : null,
+          urine_amount: isElimination ? Number(elements.urineAmount.value) : null,
+          note,
+        };
+    const { error } = isMedicalEvent
+      ? await supabase.from("medical_history").insert(payload)
+      : await supabase.from("medication_records").insert(payload);
 
     elements.saveButton.disabled = false;
     elements.saveButton.textContent = "保存记录";
     if (error) {
-      setMessage(elements.formMessage, `保存失败：${error.message}`, true);
+      const message = isMedicalEvent
+        ? medicalErrorMessage("保存", error)
+        : `保存失败：${error.message}`;
+      setMessage(elements.formMessage, message, true);
       return;
     }
 
     elements.note.value = "";
+    elements.recordMedicalTitle.value = "";
     elements.bowelMovement.value = "false";
     elements.urineAmount.value = "1";
     elements.occurredAt.value = localDateTimeValue();
@@ -942,16 +919,28 @@ if (!configured) {
     applyTypeDefaults(type);
     setMessage(
       elements.formMessage,
-      isMedication ? "已保存，系统已检查并同步用药变化" : "已保存",
+      isMedicalEvent
+        ? "已保存到医疗时间轴"
+        : isMedication
+          ? "已保存，系统已检查并同步用药变化"
+          : "已保存",
     );
     currentPage = 1;
-    if (isMedication) {
+    if (isMedication || isMedicalEvent) {
       elements.medicalMonthFilter.value = "all";
       medicalCurrentPage = 1;
-      await Promise.all([loadRecords(), loadMedicalHistory()]);
+      if (isMedicalEvent) {
+        await loadMedicalHistory();
+      } else {
+        await Promise.all([loadRecords(), loadMedicalHistory()]);
+      }
     } else {
       await loadRecords();
     }
+    lastSavedDestination = isMedicalEvent ? "medical" : "dashboard";
+    elements.viewSavedRecord.textContent = isMedicalEvent
+      ? "查看医疗时间轴"
+      : "查看刚保存的记录";
     show(elements.viewSavedRecord, true);
   });
 
@@ -976,6 +965,10 @@ if (!configured) {
     renderRecordsPage();
   });
   elements.viewSavedRecord.addEventListener("click", () => {
+    if (lastSavedDestination === "medical") {
+      setActiveTab("medical");
+      return;
+    }
     elements.recordFilter.value = "all";
     currentPage = 1;
     renderRecordsPage();
