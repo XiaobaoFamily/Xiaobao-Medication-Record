@@ -27,7 +27,7 @@ const elements = {
   occurredAt: $("#occurred-at"),
   medicine: $("#medicine"),
   medicineField: $("#medicine-field"),
-  medicineSelect: $("#medicine-select"),
+  medicineSelect: $("#medicine-select") ?? $("#oral-medicine-select"),
   recordMedicalTitle: $("#record-medical-title"),
   recordMedicalTitleField: $("#record-medical-title-field"),
   recordMedicalTitleLabel: $("#record-medical-title-label"),

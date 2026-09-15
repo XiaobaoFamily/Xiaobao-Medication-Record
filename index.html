@@ -9,7 +9,7 @@
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" href="./icons/favicon-32.png" type="image/png" sizes="32x32" />
     <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
-    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./styles.css?v=22" />
     <title>小宝大事记</title>
   </head>
   <body>
@@ -164,9 +164,13 @@
               </label>
               <label id="medicine-field">
                 <span>药物</span>
-                <select id="medicine-select" name="medicine_selection" aria-label="选择药物">
+                <select id="medicine-select" class="hidden" name="medicine_selection" aria-label="选择药物">
                   <option value="Fluticasone">Fluticasone</option>
                   <option value="__new__">新增其他药物…</option>
+                </select>
+                <select id="oral-medicine-select" class="hidden" name="oral_medicine" aria-label="选择口服药">
+                  <option value="Prednisolone">Prednisolone（泼尼松龙）</option>
+                  <option value="__new__">新增其他口服药…</option>
                 </select>
                 <input id="medicine" class="hidden" name="medicine" value="Fluticasone" />
               </label>
@@ -374,6 +378,6 @@
     </template>
 
     <script src="./config.js"></script>
-    <script type="module" src="./app.js"></script>
+    <script type="module" src="./app.js?v=22"></script>
   </body>
 </html>
