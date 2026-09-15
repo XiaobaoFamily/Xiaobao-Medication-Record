@@ -106,9 +106,9 @@
             <small id="brushing-30-day-total">近 30 天共 0 次</small>
           </article>
           <article id="oral-reminder-card" class="metric reminder-metric" data-status="neutral">
-            <span>今日口服药提醒</span>
+            <span>今日泼尼松龙提醒</span>
             <strong id="oral-reminder">计算中…</strong>
-            <small id="oral-reminder-detail">正在读取最近的口服药记录</small>
+            <small id="oral-reminder-detail">正在读取泼尼松龙记录</small>
           </article>
         </section>
 
@@ -164,6 +164,10 @@
               </label>
               <label id="medicine-field">
                 <span>药物</span>
+                <select id="oral-medicine-select" class="hidden" name="oral_medicine" aria-label="选择口服药">
+                  <option value="Prednisolone">Prednisolone（泼尼松龙）</option>
+                  <option value="__new__">新增其他口服药…</option>
+                </select>
                 <input id="medicine" name="medicine" value="Fluticasone" required />
               </label>
               <label id="record-medical-title-field" class="hidden">
@@ -283,6 +287,51 @@
       </div>
     </main>
 
+    <dialog id="medical-edit-dialog" class="edit-dialog" aria-labelledby="medical-edit-title">
+      <form id="medical-edit-form" class="edit-dialog-form">
+        <div class="dialog-heading">
+          <div>
+            <p id="medical-edit-type" class="eyebrow"></p>
+            <h2 id="medical-edit-title">编辑医疗记录</h2>
+          </div>
+          <button id="medical-edit-cancel" class="text-button" type="button" aria-label="关闭编辑窗口">关闭</button>
+        </div>
+        <div class="edit-form-grid">
+          <label>
+            <span>日期</span>
+            <input id="medical-edit-date" type="date" required />
+          </label>
+          <label>
+            <span>标题</span>
+            <input id="medical-edit-record-title" required />
+          </label>
+          <label id="medical-edit-dose-field" class="hidden">
+            <span>剂量</span>
+            <input id="medical-edit-dose" placeholder="例如：2.5 mg" />
+          </label>
+          <div id="medical-edit-frequency-field" class="form-field hidden">
+            <span class="field-label">频率</span>
+            <div class="frequency-control">
+              <span>每</span>
+              <input id="medical-edit-frequency-days" type="number" min="1" step="1" inputmode="numeric" aria-label="编辑频率的间隔天数" />
+              <span>天</span>
+              <input id="medical-edit-frequency-times" type="number" min="1" step="1" inputmode="numeric" aria-label="编辑频率的用药次数" />
+              <span>次</span>
+            </div>
+          </div>
+          <label class="wide">
+            <span>备注 <small>（可选）</small></span>
+            <textarea id="medical-edit-note" rows="4"></textarea>
+          </label>
+        </div>
+        <div class="dialog-actions">
+          <button id="medical-edit-dismiss" class="secondary" type="button">取消</button>
+          <button id="medical-edit-save" class="primary" type="submit">保存修改</button>
+        </div>
+        <p id="medical-edit-message" class="form-message" role="status"></p>
+      </form>
+    </dialog>
+
     <template id="record-template">
       <article class="record-row">
         <div class="record-icon" aria-hidden="true"></div>
@@ -310,7 +359,10 @@
           <p class="timeline-details"></p>
           <p class="timeline-note"></p>
         </div>
-        <button class="delete-button timeline-delete" type="button" aria-label="删除这条医疗记录">删除</button>
+        <div class="timeline-actions">
+          <button class="text-button timeline-edit" type="button" aria-label="编辑这条医疗记录">编辑</button>
+          <button class="delete-button timeline-delete" type="button" aria-label="删除这条医疗记录">删除</button>
+        </div>
       </article>
     </template>
 

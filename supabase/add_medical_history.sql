@@ -12,6 +12,7 @@ create table if not exists public.medical_history (
   dose text check (dose is null or length(btrim(dose)) > 0),
   frequency text check (frequency is null or length(btrim(frequency)) > 0),
   source_medication_record_id uuid references public.medication_records(id) on delete set null,
+  is_user_edited boolean not null default false,
   note text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -27,6 +28,9 @@ create table if not exists public.medical_history (
 alter table public.medical_history
 add column if not exists source_medication_record_id uuid
 references public.medication_records(id) on delete set null;
+
+alter table public.medical_history
+add column if not exists is_user_edited boolean not null default false;
 
 alter table public.medical_history
 drop constraint if exists medical_history_event_type_check;
@@ -373,4 +377,5 @@ on conflict (source_medication_record_id)
     title = excluded.title,
     dose = excluded.dose,
     frequency = excluded.frequency,
-    note = excluded.note;
+    note = excluded.note
+  where not medical_history.is_user_edited;

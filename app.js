@@ -27,6 +27,7 @@ const elements = {
   occurredAt: $("#occurred-at"),
   medicine: $("#medicine"),
   medicineField: $("#medicine-field"),
+  oralMedicineSelect: $("#oral-medicine-select"),
   recordMedicalTitle: $("#record-medical-title"),
   recordMedicalTitleField: $("#record-medical-title-field"),
   recordMedicalTitleLabel: $("#record-medical-title-label"),
@@ -67,11 +68,28 @@ const elements = {
   medicalPreviousPage: $("#medical-previous-page"),
   medicalNextPage: $("#medical-next-page"),
   medicalPageStatus: $("#medical-page-status"),
+  medicalEditDialog: $("#medical-edit-dialog"),
+  medicalEditForm: $("#medical-edit-form"),
+  medicalEditType: $("#medical-edit-type"),
+  medicalEditDate: $("#medical-edit-date"),
+  medicalEditTitle: $("#medical-edit-record-title"),
+  medicalEditDoseField: $("#medical-edit-dose-field"),
+  medicalEditDose: $("#medical-edit-dose"),
+  medicalEditFrequencyField: $("#medical-edit-frequency-field"),
+  medicalEditFrequencyDays: $("#medical-edit-frequency-days"),
+  medicalEditFrequencyTimes: $("#medical-edit-frequency-times"),
+  medicalEditNote: $("#medical-edit-note"),
+  medicalEditCancel: $("#medical-edit-cancel"),
+  medicalEditDismiss: $("#medical-edit-dismiss"),
+  medicalEditSave: $("#medical-edit-save"),
+  medicalEditMessage: $("#medical-edit-message"),
 };
 
 const PAGE_SIZE = 10;
 const CHICAGO_TIME_ZONE = "America/Chicago";
 const TAB_STORAGE_KEY = "xiaobao-active-tab";
+const PREDNISOLONE_NAME = "Prednisolone";
+const NEW_ORAL_MEDICINE_VALUE = "__new__";
 
 const typeMeta = {
   inhaled: { label: "吸入药", icon: "吸", className: "inhaled" },
@@ -93,6 +111,7 @@ const medicationDefaults = {
   oral: { medicine: "Prednisolone", doseAmount: "2.5", doseUnit: "mg", frequency: null },
 };
 let medicationDefaultsHydrated = false;
+let knownOralMedicines = [PREDNISOLONE_NAME];
 
 const allowedUserIds = new Set([
   "f95b14d7-4881-4433-8442-a401831544e6",
@@ -224,7 +243,82 @@ function updateFrequencyPreview(preferredFrequency = null) {
   syncFrequencyValue();
 }
 
+function medicineNameKey(name) {
+  return name?.trim().toLocaleLowerCase("en-US") ?? "";
+}
+
+function isPrednisolone(name) {
+  return medicineNameKey(name) === medicineNameKey(PREDNISOLONE_NAME);
+}
+
+function updateKnownOralMedicines(rows) {
+  const names = [PREDNISOLONE_NAME];
+  const seen = new Set(names.map(medicineNameKey));
+  for (const row of rows) {
+    if (row.type !== "oral") continue;
+    const name = row.medicine?.trim();
+    const key = medicineNameKey(name);
+    if (!name || seen.has(key)) continue;
+    names.push(name);
+    seen.add(key);
+  }
+  knownOralMedicines = names;
+}
+
+function renderOralMedicineOptions(preferredMedicine = PREDNISOLONE_NAME) {
+  const names = [...knownOralMedicines];
+  const preferred = preferredMedicine?.trim();
+  if (preferred && !names.some((name) => medicineNameKey(name) === medicineNameKey(preferred))) {
+    names.push(preferred);
+  }
+
+  const options = names.map((name) => {
+    const option = document.createElement("option");
+    option.value = name;
+    option.textContent = isPrednisolone(name) ? "Prednisolone（泼尼松龙）" : name;
+    return option;
+  });
+  const newOption = document.createElement("option");
+  newOption.value = NEW_ORAL_MEDICINE_VALUE;
+  newOption.textContent = "新增其他口服药…";
+  elements.oralMedicineSelect.replaceChildren(...options, newOption);
+
+  const matchedName = names.find(
+    (name) => medicineNameKey(name) === medicineNameKey(preferred),
+  );
+  elements.oralMedicineSelect.value = matchedName ?? NEW_ORAL_MEDICINE_VALUE;
+  elements.medicine.value = matchedName ?? preferred ?? "";
+}
+
+function updateOralMedicineControl(focusNewMedicine = false) {
+  const isOral = selectedType() === "oral";
+  const isNewMedicine = isOral && elements.oralMedicineSelect.value === NEW_ORAL_MEDICINE_VALUE;
+  show(elements.oralMedicineSelect, isOral);
+  show(elements.medicine, !isOral || isNewMedicine);
+  elements.medicine.required = selectedType() === "inhaled" || isNewMedicine;
+
+  if (isOral && !isNewMedicine) {
+    elements.medicine.value = elements.oralMedicineSelect.value;
+  } else if (isNewMedicine) {
+    elements.medicine.placeholder = "输入新的口服药名称";
+    if (focusNewMedicine) {
+      elements.medicine.value = "";
+      elements.medicine.focus();
+    }
+  } else {
+    elements.medicine.placeholder = "";
+  }
+}
+
+function selectedMedicineName() {
+  if (selectedType() === "oral" && elements.oralMedicineSelect.value !== NEW_ORAL_MEDICINE_VALUE) {
+    return elements.oralMedicineSelect.value.trim();
+  }
+  return elements.medicine.value.trim();
+}
+
 function updateMedicationDefaults(rows) {
+  updateKnownOralMedicines(rows);
   for (const type of ["inhaled", "oral"]) {
     const latest = rows
       .filter((row) => row.type === type)
@@ -245,6 +339,7 @@ function updateMedicationDefaults(rows) {
 
 function applyTypeDefaults(type) {
   const isMedication = type === "inhaled" || type === "oral";
+  const isOral = type === "oral";
   const isElimination = type === "elimination";
   const isMedicalEvent = type === "vaccine" || type === "illness";
   show(elements.medicineField, isMedication);
@@ -254,7 +349,7 @@ function applyTypeDefaults(type) {
   show(elements.medicationHistoryHint, isMedication);
   show(elements.bowelMovementField, isElimination);
   show(elements.urineAmountField, isElimination);
-  elements.medicine.required = isMedication;
+  elements.medicine.required = type === "inhaled";
   elements.recordMedicalTitle.required = isMedicalEvent;
   elements.doseAmount.required = isMedication;
   elements.frequencyDays.required = isMedication;
@@ -271,10 +366,14 @@ function applyTypeDefaults(type) {
   if (isMedication) {
     const defaults = medicationDefaults[type];
     elements.medicine.value = defaults.medicine;
+    if (isOral) renderOralMedicineOptions(defaults.medicine);
     elements.doseAmount.value = defaults.doseAmount;
     elements.doseUnit.value = defaults.doseUnit;
     updateFrequencyPreview(defaults.frequency);
+    updateOralMedicineControl();
   } else {
+    show(elements.oralMedicineSelect, false);
+    show(elements.medicine, true);
     elements.medicine.value = "";
     elements.doseAmount.value = "";
     updateFrequencyPreview();
@@ -290,6 +389,7 @@ elements.recordForm?.addEventListener("change", (event) => {
 });
 elements.frequencyDays.addEventListener("input", syncFrequencyValue);
 elements.frequencyTimes.addEventListener("input", syncFrequencyValue);
+elements.oralMedicineSelect.addEventListener("change", () => updateOralMedicineControl(true));
 applyTypeDefaults(selectedType());
 setActiveTab(initialTab(), false);
 elements.dashboardTab.addEventListener("click", () => setActiveTab("dashboard"));
@@ -307,6 +407,7 @@ if (!configured) {
   let currentPage = 1;
   let medicalCurrentPage = 1;
   let lastSavedDestination = "dashboard";
+  let editingMedicalRecord = null;
 
   async function renderSession(session) {
     if (session && !allowedUserIds.has(session.user.id)) {
@@ -383,7 +484,7 @@ if (!configured) {
     const tableMissing =
       error.code === "42P01" ||
       error.code === "PGRST205" ||
-      /medical_history.*does not exist|could not find.*medical_history|schema cache/i.test(error.message ?? "");
+      /medical_history.*does not exist|could not find.*medical_history|is_user_edited.*does not exist|could not find.*is_user_edited|schema cache/i.test(error.message ?? "");
     if (tableMissing) {
       return `${action}失败：请先在 Supabase SQL Editor 运行 supabase/add_medical_history.sql`;
     }
@@ -454,6 +555,54 @@ if (!configured) {
       : medicalHistory.filter((row) => medicalMonthKey(row) === month);
   }
 
+  function isMedicationHistoryEvent(eventType) {
+    return eventType === "medication_start" || eventType === "medication_change";
+  }
+
+  function closeMedicalEditor() {
+    if (elements.medicalEditDialog.open) elements.medicalEditDialog.close();
+    editingMedicalRecord = null;
+    setMessage(elements.medicalEditMessage, "");
+  }
+
+  function openMedicalEditor(row) {
+    editingMedicalRecord = row;
+    const meta = medicalTypeMeta[row.event_type] ?? medicalTypeMeta.illness;
+    const isMedicationEvent = isMedicationHistoryEvent(row.event_type);
+    const schedule = parseFrequency(row.frequency);
+
+    elements.medicalEditType.textContent = meta.label;
+    elements.medicalEditDate.value = row.occurred_on;
+    elements.medicalEditTitle.value = row.title;
+    elements.medicalEditDose.value = row.dose ?? "";
+    elements.medicalEditFrequencyDays.value = schedule ? String(schedule.days) : "";
+    elements.medicalEditFrequencyTimes.value = schedule ? String(schedule.times) : "";
+    elements.medicalEditNote.value = row.note ?? "";
+    show(elements.medicalEditDoseField, isMedicationEvent);
+    show(elements.medicalEditFrequencyField, isMedicationEvent);
+    elements.medicalEditDose.required = row.event_type === "medication_start";
+    elements.medicalEditFrequencyDays.required = row.event_type === "medication_start";
+    elements.medicalEditFrequencyTimes.required = row.event_type === "medication_start";
+    setMessage(elements.medicalEditMessage, "");
+    if (!elements.medicalEditDialog.open) elements.medicalEditDialog.showModal();
+  }
+
+  function readMedicalEditFrequency() {
+    const daysText = elements.medicalEditFrequencyDays.value.trim();
+    const timesText = elements.medicalEditFrequencyTimes.value.trim();
+    if (!daysText && !timesText) return { value: null, error: null };
+    if (!daysText || !timesText) {
+      return { value: null, error: "如需保留频率，请同时填写天数和次数。" };
+    }
+
+    const days = Number(daysText);
+    const times = Number(timesText);
+    if (!validFrequencySchedule(days, times)) {
+      return { value: null, error: "频率的天数和次数必须是大于 0 的整数。" };
+    }
+    return { value: formatFrequency(days, times), error: null };
+  }
+
   function renderMedicalTimeline() {
     elements.medicalTimeline.replaceChildren();
     const visibleHistory = filteredMedicalHistory();
@@ -491,6 +640,7 @@ if (!configured) {
       const title = fragment.querySelector(".timeline-title");
       const details = fragment.querySelector(".timeline-details");
       const note = fragment.querySelector(".timeline-note");
+      const editButton = fragment.querySelector(".timeline-edit");
       const deleteButton = fragment.querySelector(".timeline-delete");
 
       article.dataset.eventType = row.event_type;
@@ -514,8 +664,10 @@ if (!configured) {
       note.textContent = row.note ?? "";
       show(note, Boolean(row.note));
 
+      editButton.addEventListener("click", () => openMedicalEditor(row));
+
       deleteButton.addEventListener("click", async () => {
-        if (!window.confirm("确定删除这条医疗记录吗？")) return;
+        if (!window.confirm(`确定删除“${row.title}”吗？删除后无法恢复。`)) return;
         deleteButton.disabled = true;
         const { error } = await supabase.from("medical_history").delete().eq("id", row.id);
         if (error) {
@@ -566,12 +718,15 @@ if (!configured) {
     const card = $("#oral-reminder-card");
     const title = $("#oral-reminder");
     const detail = $("#oral-reminder-detail");
-    const latestOral = rows.find((row) => row.type === "oral");
+    const prednisoloneRows = rows.filter(
+      (row) => row.type === "oral" && isPrednisolone(row.medicine),
+    );
+    const latestOral = prednisoloneRows[0];
 
     if (!latestOral) {
       card.dataset.status = "neutral";
-      title.textContent = "暂无服药计划";
-      detail.textContent = "记录一次口服药后，这里会自动计算提醒";
+      title.textContent = "暂无泼尼松龙计划";
+      detail.textContent = "记录一次泼尼松龙后，这里会自动计算提醒";
       return;
     }
 
@@ -582,18 +737,18 @@ if (!configured) {
     const normalizedFrequency = schedule
       ? formatFrequency(schedule.days, schedule.times)
       : frequency;
-    const todayOralCount = rows.filter(
-      (row) => row.type === "oral" && chicagoDateKey(new Date(row.occurred_at)) === todayKey,
+    const todayOralCount = prednisoloneRows.filter(
+      (row) => chicagoDateKey(new Date(row.occurred_at)) === todayKey,
     ).length;
 
     if (lastDoseKey === todayKey) {
       if (schedule && todayOralCount < schedule.times) {
         card.dataset.status = "due";
-        title.textContent = `今天还需口服 ${schedule.times - todayOralCount} 次`;
+        title.textContent = `今天还需服用泼尼松龙 ${schedule.times - todayOralCount} 次`;
         detail.textContent = `当前频率：${normalizedFrequency} · 已完成 ${todayOralCount}/${schedule.times} 次`;
       } else {
         card.dataset.status = "complete";
-        title.textContent = "今日已完成";
+        title.textContent = "今日泼尼松龙已完成";
         detail.textContent = `当前频率：${normalizedFrequency}`;
       }
       return;
@@ -601,7 +756,7 @@ if (!configured) {
 
     if (!schedule) {
       card.dataset.status = "neutral";
-      title.textContent = "请确认今日安排";
+      title.textContent = "请确认今日泼尼松龙安排";
       detail.textContent = `当前频率：${frequency}`;
       return;
     }
@@ -609,11 +764,13 @@ if (!configured) {
     const nextDoseKey = addCalendarDays(lastDoseKey, schedule.days);
     if (todayKey >= nextDoseKey) {
       card.dataset.status = "due";
-      title.textContent = schedule.times === 1 ? "今天需要口服药" : `今天需要口服 ${schedule.times} 次`;
+      title.textContent = schedule.times === 1
+        ? "今天需要服用泼尼松龙"
+        : `今天需要服用泼尼松龙 ${schedule.times} 次`;
       detail.textContent = `当前频率：${normalizedFrequency} · 上次 ${formatDateKey(lastDoseKey)}`;
     } else {
       card.dataset.status = "upcoming";
-      title.textContent = "今天不需要口服药";
+      title.textContent = "今天不需要泼尼松龙";
       detail.textContent = `当前频率：${normalizedFrequency} · 下次预计 ${formatDateKey(nextDoseKey)}`;
     }
   }
@@ -881,7 +1038,7 @@ if (!configured) {
       : {
           occurred_at: occurredAt.toISOString(),
           type,
-          medicine: isMedication ? elements.medicine.value.trim() : null,
+          medicine: isMedication ? selectedMedicineName() : null,
           dose_amount: isMedication ? Number(elements.doseAmount.value) : null,
           dose_unit: isMedication ? elements.doseUnit.value : null,
           frequency: isMedication ? elements.frequency.value : null,
@@ -915,6 +1072,14 @@ if (!configured) {
         doseUnit: payload.dose_unit,
         frequency: payload.frequency,
       };
+      if (
+        type === "oral" &&
+        !knownOralMedicines.some(
+          (name) => medicineNameKey(name) === medicineNameKey(payload.medicine),
+        )
+      ) {
+        knownOralMedicines.push(payload.medicine);
+      }
     }
     applyTypeDefaults(type);
     setMessage(
@@ -942,6 +1107,69 @@ if (!configured) {
       ? "查看医疗时间轴"
       : "查看刚保存的记录";
     show(elements.viewSavedRecord, true);
+  });
+
+  elements.medicalEditForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (!editingMedicalRecord) return;
+
+    const isMedicationEvent = isMedicationHistoryEvent(editingMedicalRecord.event_type);
+    const dose = isMedicationEvent ? elements.medicalEditDose.value.trim() || null : null;
+    const frequencyResult = isMedicationEvent
+      ? readMedicalEditFrequency()
+      : { value: null, error: null };
+    if (frequencyResult.error) {
+      setMessage(elements.medicalEditMessage, frequencyResult.error, true);
+      return;
+    }
+    if (
+      editingMedicalRecord.event_type === "medication_start" &&
+      (!dose || !frequencyResult.value)
+    ) {
+      setMessage(elements.medicalEditMessage, "新增用药需要保留剂量和频率。", true);
+      return;
+    }
+    if (
+      editingMedicalRecord.event_type === "medication_change" &&
+      !dose &&
+      !frequencyResult.value
+    ) {
+      setMessage(elements.medicalEditMessage, "用药变化至少需要剂量或频率。", true);
+      return;
+    }
+
+    elements.medicalEditSave.disabled = true;
+    elements.medicalEditSave.textContent = "保存中…";
+    setMessage(elements.medicalEditMessage, "");
+    const { error } = await supabase
+      .from("medical_history")
+      .update({
+        occurred_on: elements.medicalEditDate.value,
+        title: elements.medicalEditTitle.value.trim(),
+        dose,
+        frequency: frequencyResult.value,
+        note: elements.medicalEditNote.value.trim() || null,
+        is_user_edited: true,
+      })
+      .eq("id", editingMedicalRecord.id);
+    elements.medicalEditSave.disabled = false;
+    elements.medicalEditSave.textContent = "保存修改";
+
+    if (error) {
+      setMessage(elements.medicalEditMessage, medicalErrorMessage("更新", error), true);
+      return;
+    }
+
+    closeMedicalEditor();
+    await loadMedicalHistory();
+    setMessage(elements.medicalMessage, "已更新医疗记录");
+  });
+
+  elements.medicalEditCancel.addEventListener("click", closeMedicalEditor);
+  elements.medicalEditDismiss.addEventListener("click", closeMedicalEditor);
+  elements.medicalEditDialog.addEventListener("cancel", () => {
+    editingMedicalRecord = null;
+    setMessage(elements.medicalEditMessage, "");
   });
 
   elements.refresh.addEventListener("click", loadRecords);

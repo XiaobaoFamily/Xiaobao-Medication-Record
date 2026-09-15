@@ -154,8 +154,17 @@ input[type="datetime-local"]::-webkit-datetime-edit, input[type="date"]::-webkit
 .timeline-details, .timeline-note { margin: 7px 0 0; font-size: 0.84rem; line-height: 1.55; }
 .timeline-details { color: var(--accent); font-weight: 750; }
 .timeline-note { color: var(--muted); white-space: pre-wrap; }
-.timeline-delete { margin-top: 1px; }
+.timeline-actions { display: flex; align-items: center; gap: 10px; margin-top: 1px; }
+.timeline-edit { font-size: 0.78rem; }
 .timeline-item:hover .delete-button, .timeline-item .delete-button:focus { opacity: 1; }
+
+.edit-dialog { width: min(560px, calc(100vw - 28px)); max-width: calc(100vw - 28px); max-height: min(760px, calc(100dvh - 28px)); padding: 0; overflow: auto; border: 1px solid var(--line); border-radius: 22px; background: var(--surface); color: var(--ink); box-shadow: 0 24px 80px rgba(23, 51, 47, 0.24); }
+.edit-dialog::backdrop { background: rgba(23, 51, 47, 0.42); backdrop-filter: blur(3px); }
+.edit-dialog-form { padding: clamp(22px, 5vw, 32px); }
+.dialog-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
+.edit-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-top: 24px; }
+.edit-form-grid > label, .edit-form-grid > .form-field { min-width: 0; }
+.dialog-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 24px; }
 
 .history { padding: 0 clamp(4px, 2vw, 14px); }
 .history-actions { display: flex; align-items: center; gap: 12px; }
@@ -205,7 +214,8 @@ code { padding: 2px 6px; border-radius: 5px; background: var(--soft); }
   .history-actions { gap: 8px; }
   .filter-select { max-width: 126px; }
   .timeline-item { grid-template-columns: 36px minmax(0, 1fr); }
-  .timeline-delete { grid-column: 2; justify-self: start; margin-top: -18px; }
+  .timeline-actions { grid-column: 2; justify-self: start; margin-top: -18px; }
+  .edit-form-grid { grid-template-columns: 1fr; }
 }
 
 @media (display-mode: standalone) {
