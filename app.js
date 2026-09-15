@@ -27,7 +27,7 @@ const elements = {
   occurredAt: $("#occurred-at"),
   medicine: $("#medicine"),
   medicineField: $("#medicine-field"),
-  oralMedicineSelect: $("#oral-medicine-select"),
+  medicineSelect: $("#medicine-select"),
   recordMedicalTitle: $("#record-medical-title"),
   recordMedicalTitleField: $("#record-medical-title-field"),
   recordMedicalTitleLabel: $("#record-medical-title-label"),
@@ -88,8 +88,9 @@ const elements = {
 const PAGE_SIZE = 10;
 const CHICAGO_TIME_ZONE = "America/Chicago";
 const TAB_STORAGE_KEY = "xiaobao-active-tab";
+const FLUTICASONE_NAME = "Fluticasone";
 const PREDNISOLONE_NAME = "Prednisolone";
-const NEW_ORAL_MEDICINE_VALUE = "__new__";
+const NEW_MEDICINE_VALUE = "__new__";
 
 const typeMeta = {
   inhaled: { label: "吸入药", icon: "吸", className: "inhaled" },
@@ -107,11 +108,14 @@ const medicalTypeMeta = {
 };
 
 const medicationDefaults = {
-  inhaled: { medicine: "Fluticasone", doseAmount: "110", doseUnit: "mcg", frequency: null },
-  oral: { medicine: "Prednisolone", doseAmount: "2.5", doseUnit: "mg", frequency: null },
+  inhaled: { medicine: FLUTICASONE_NAME, doseAmount: "110", doseUnit: "mcg", frequency: null },
+  oral: { medicine: PREDNISOLONE_NAME, doseAmount: "2.5", doseUnit: "mg", frequency: null },
 };
 let medicationDefaultsHydrated = false;
-let knownOralMedicines = [PREDNISOLONE_NAME];
+let knownMedicines = {
+  inhaled: [FLUTICASONE_NAME],
+  oral: [PREDNISOLONE_NAME],
+};
 
 const allowedUserIds = new Set([
   "f95b14d7-4881-4433-8442-a401831544e6",
@@ -251,22 +255,28 @@ function isPrednisolone(name) {
   return medicineNameKey(name) === medicineNameKey(PREDNISOLONE_NAME);
 }
 
-function updateKnownOralMedicines(rows) {
-  const names = [PREDNISOLONE_NAME];
-  const seen = new Set(names.map(medicineNameKey));
-  for (const row of rows) {
-    if (row.type !== "oral") continue;
-    const name = row.medicine?.trim();
-    const key = medicineNameKey(name);
-    if (!name || seen.has(key)) continue;
-    names.push(name);
-    seen.add(key);
+function updateKnownMedicines(rows) {
+  const defaults = {
+    inhaled: FLUTICASONE_NAME,
+    oral: PREDNISOLONE_NAME,
+  };
+  for (const type of ["inhaled", "oral"]) {
+    const names = [defaults[type]];
+    const seen = new Set(names.map(medicineNameKey));
+    for (const row of rows) {
+      if (row.type !== type) continue;
+      const name = row.medicine?.trim();
+      const key = medicineNameKey(name);
+      if (!name || seen.has(key)) continue;
+      names.push(name);
+      seen.add(key);
+    }
+    knownMedicines[type] = names;
   }
-  knownOralMedicines = names;
 }
 
-function renderOralMedicineOptions(preferredMedicine = PREDNISOLONE_NAME) {
-  const names = [...knownOralMedicines];
+function renderMedicineOptions(type, preferredMedicine = medicationDefaults[type].medicine) {
+  const names = [...knownMedicines[type]];
   const preferred = preferredMedicine?.trim();
   if (preferred && !names.some((name) => medicineNameKey(name) === medicineNameKey(preferred))) {
     names.push(preferred);
@@ -279,28 +289,29 @@ function renderOralMedicineOptions(preferredMedicine = PREDNISOLONE_NAME) {
     return option;
   });
   const newOption = document.createElement("option");
-  newOption.value = NEW_ORAL_MEDICINE_VALUE;
-  newOption.textContent = "新增其他口服药…";
-  elements.oralMedicineSelect.replaceChildren(...options, newOption);
+  newOption.value = NEW_MEDICINE_VALUE;
+  newOption.textContent = type === "inhaled" ? "新增其他吸入药…" : "新增其他口服药…";
+  elements.medicineSelect.replaceChildren(...options, newOption);
 
   const matchedName = names.find(
     (name) => medicineNameKey(name) === medicineNameKey(preferred),
   );
-  elements.oralMedicineSelect.value = matchedName ?? NEW_ORAL_MEDICINE_VALUE;
+  elements.medicineSelect.value = matchedName ?? NEW_MEDICINE_VALUE;
   elements.medicine.value = matchedName ?? preferred ?? "";
 }
 
-function updateOralMedicineControl(focusNewMedicine = false) {
-  const isOral = selectedType() === "oral";
-  const isNewMedicine = isOral && elements.oralMedicineSelect.value === NEW_ORAL_MEDICINE_VALUE;
-  show(elements.oralMedicineSelect, isOral);
-  show(elements.medicine, !isOral || isNewMedicine);
-  elements.medicine.required = selectedType() === "inhaled" || isNewMedicine;
+function updateMedicineControl(focusNewMedicine = false) {
+  const type = selectedType();
+  const isMedication = type === "inhaled" || type === "oral";
+  const isNewMedicine = isMedication && elements.medicineSelect.value === NEW_MEDICINE_VALUE;
+  show(elements.medicineSelect, isMedication);
+  show(elements.medicine, isNewMedicine);
+  elements.medicine.required = isNewMedicine;
 
-  if (isOral && !isNewMedicine) {
-    elements.medicine.value = elements.oralMedicineSelect.value;
+  if (isMedication && !isNewMedicine) {
+    elements.medicine.value = elements.medicineSelect.value;
   } else if (isNewMedicine) {
-    elements.medicine.placeholder = "输入新的口服药名称";
+    elements.medicine.placeholder = type === "inhaled" ? "输入新的吸入药名称" : "输入新的口服药名称";
     if (focusNewMedicine) {
       elements.medicine.value = "";
       elements.medicine.focus();
@@ -311,14 +322,14 @@ function updateOralMedicineControl(focusNewMedicine = false) {
 }
 
 function selectedMedicineName() {
-  if (selectedType() === "oral" && elements.oralMedicineSelect.value !== NEW_ORAL_MEDICINE_VALUE) {
-    return elements.oralMedicineSelect.value.trim();
+  if (elements.medicineSelect.value !== NEW_MEDICINE_VALUE) {
+    return elements.medicineSelect.value.trim();
   }
   return elements.medicine.value.trim();
 }
 
 function updateMedicationDefaults(rows) {
-  updateKnownOralMedicines(rows);
+  updateKnownMedicines(rows);
   for (const type of ["inhaled", "oral"]) {
     const latest = rows
       .filter((row) => row.type === type)
@@ -339,7 +350,6 @@ function updateMedicationDefaults(rows) {
 
 function applyTypeDefaults(type) {
   const isMedication = type === "inhaled" || type === "oral";
-  const isOral = type === "oral";
   const isElimination = type === "elimination";
   const isMedicalEvent = type === "vaccine" || type === "illness";
   show(elements.medicineField, isMedication);
@@ -349,7 +359,7 @@ function applyTypeDefaults(type) {
   show(elements.medicationHistoryHint, isMedication);
   show(elements.bowelMovementField, isElimination);
   show(elements.urineAmountField, isElimination);
-  elements.medicine.required = type === "inhaled";
+  elements.medicine.required = false;
   elements.recordMedicalTitle.required = isMedicalEvent;
   elements.doseAmount.required = isMedication;
   elements.frequencyDays.required = isMedication;
@@ -366,14 +376,14 @@ function applyTypeDefaults(type) {
   if (isMedication) {
     const defaults = medicationDefaults[type];
     elements.medicine.value = defaults.medicine;
-    if (isOral) renderOralMedicineOptions(defaults.medicine);
+    renderMedicineOptions(type, defaults.medicine);
     elements.doseAmount.value = defaults.doseAmount;
     elements.doseUnit.value = defaults.doseUnit;
     updateFrequencyPreview(defaults.frequency);
-    updateOralMedicineControl();
+    updateMedicineControl();
   } else {
-    show(elements.oralMedicineSelect, false);
-    show(elements.medicine, true);
+    show(elements.medicineSelect, false);
+    show(elements.medicine, false);
     elements.medicine.value = "";
     elements.doseAmount.value = "";
     updateFrequencyPreview();
@@ -389,7 +399,7 @@ elements.recordForm?.addEventListener("change", (event) => {
 });
 elements.frequencyDays.addEventListener("input", syncFrequencyValue);
 elements.frequencyTimes.addEventListener("input", syncFrequencyValue);
-elements.oralMedicineSelect.addEventListener("change", () => updateOralMedicineControl(true));
+elements.medicineSelect.addEventListener("change", () => updateMedicineControl(true));
 applyTypeDefaults(selectedType());
 setActiveTab(initialTab(), false);
 elements.dashboardTab.addEventListener("click", () => setActiveTab("dashboard"));
@@ -1018,11 +1028,18 @@ if (!configured) {
     const isMedication = type === "inhaled" || type === "oral";
     const isElimination = type === "elimination";
     const isMedicalEvent = type === "vaccine" || type === "illness";
+    if (isMedication) syncFrequencyValue();
+    const medicine = isMedication ? selectedMedicineName() : null;
+    if (isMedication && !medicine) {
+      setMessage(elements.formMessage, "请输入药物名称。", true);
+      elements.medicine.focus();
+      return;
+    }
+
     elements.saveButton.disabled = true;
     elements.saveButton.textContent = "保存中…";
     show(elements.viewSavedRecord, false);
     setMessage(elements.formMessage, "");
-    if (isMedication) syncFrequencyValue();
 
     const occurredAt = new Date(elements.occurredAt.value);
     const note = elements.note.value.trim() || null;
@@ -1038,7 +1055,7 @@ if (!configured) {
       : {
           occurred_at: occurredAt.toISOString(),
           type,
-          medicine: isMedication ? selectedMedicineName() : null,
+          medicine,
           dose_amount: isMedication ? Number(elements.doseAmount.value) : null,
           dose_unit: isMedication ? elements.doseUnit.value : null,
           frequency: isMedication ? elements.frequency.value : null,
@@ -1072,13 +1089,10 @@ if (!configured) {
         doseUnit: payload.dose_unit,
         frequency: payload.frequency,
       };
-      if (
-        type === "oral" &&
-        !knownOralMedicines.some(
-          (name) => medicineNameKey(name) === medicineNameKey(payload.medicine),
-        )
-      ) {
-        knownOralMedicines.push(payload.medicine);
+      if (!knownMedicines[type].some(
+        (name) => medicineNameKey(name) === medicineNameKey(payload.medicine),
+      )) {
+        knownMedicines[type].push(payload.medicine);
       }
     }
     applyTypeDefaults(type);

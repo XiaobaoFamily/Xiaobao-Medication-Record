@@ -22,7 +22,7 @@ drop constraint if exists medication_details_match_type;
 
 alter table public.medication_records
 add constraint medication_details_match_type check (
-  (type = 'inhaled' and medicine is not null and dose_amount > 0 and dose_unit = 'mcg' and frequency is not null)
-  or (type = 'oral' and medicine is not null and dose_amount > 0 and dose_unit = 'mg' and frequency is not null)
+  (type = 'inhaled' and medicine is not null and dose_amount > 0 and dose_unit is not null and frequency is not null)
+  or (type = 'oral' and medicine is not null and dose_amount > 0 and dose_unit is not null and frequency is not null)
   or (type = 'behavior' and medicine is null and dose_amount is null and dose_unit is null and frequency is null)
 );

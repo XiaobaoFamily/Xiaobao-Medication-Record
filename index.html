@@ -164,11 +164,11 @@
               </label>
               <label id="medicine-field">
                 <span>药物</span>
-                <select id="oral-medicine-select" class="hidden" name="oral_medicine" aria-label="选择口服药">
-                  <option value="Prednisolone">Prednisolone（泼尼松龙）</option>
-                  <option value="__new__">新增其他口服药…</option>
+                <select id="medicine-select" name="medicine_selection" aria-label="选择药物">
+                  <option value="Fluticasone">Fluticasone</option>
+                  <option value="__new__">新增其他药物…</option>
                 </select>
-                <input id="medicine" name="medicine" value="Fluticasone" required />
+                <input id="medicine" class="hidden" name="medicine" value="Fluticasone" />
               </label>
               <label id="record-medical-title-field" class="hidden">
                 <span id="record-medical-title-label">疫苗名称</span>
@@ -181,6 +181,13 @@
                   <select id="dose-unit" name="dose_unit" aria-label="剂量单位">
                     <option value="mcg">mcg</option>
                     <option value="mg">mg</option>
+                    <option value="g">g</option>
+                    <option value="mL">mL</option>
+                    <option value="IU">IU</option>
+                    <option value="片">片</option>
+                    <option value="粒">粒</option>
+                    <option value="滴">滴</option>
+                    <option value="喷">喷</option>
                   </select>
                 </span>
               </label>
