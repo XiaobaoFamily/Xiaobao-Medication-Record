@@ -58,6 +58,18 @@ const elements = {
   dashboardTab: $("#dashboard-tab"),
   recordTab: $("#record-tab"),
   medicalTab: $("#medical-tab"),
+  medicationsViewTab: $("#medications-view-tab"),
+  timelineViewTab: $("#timeline-view-tab"),
+  medicationsCard: $("#medications-card"),
+  medicalTimelineCard: $("#medical-timeline-card"),
+  medicationsSyncState: $("#medications-sync-state"),
+  medicationsRefresh: $("#medications-refresh"),
+  activeMedications: $("#active-medications"),
+  activeMedicationsCount: $("#active-medications-count"),
+  activeMedicationsEmpty: $("#active-medications-empty"),
+  inactiveMedicationsSection: $("#inactive-medications-section"),
+  inactiveMedications: $("#inactive-medications"),
+  medicationsMessage: $("#medications-message"),
   medicalMessage: $("#medical-message"),
   medicalSyncState: $("#medical-sync-state"),
   medicalTimeline: $("#medical-timeline"),
@@ -105,6 +117,12 @@ const medicalTypeMeta = {
   illness: { label: "疾病", icon: "病", titleLabel: "疾病或症状", placeholder: "例如：哮喘" },
   medication_start: { label: "新增用药", icon: "新" },
   medication_change: { label: "用药变化", icon: "药" },
+};
+
+const medicationStatusMeta = {
+  active: { label: "使用中" },
+  finished: { label: "已用完" },
+  stopped: { label: "已停药" },
 };
 
 const medicationDefaults = {
@@ -168,6 +186,17 @@ function setActiveTab(tab, scrollToTop = true) {
     // localStorage 不可用时，Tab 仍可在当前页面正常切换。
   }
   if (scrollToTop) window.scrollTo(0, 0);
+}
+
+function setMedicalView(view) {
+  const activeView = view === "timeline" ? "timeline" : "medications";
+  const medicationsActive = activeView === "medications";
+  show(elements.medicationsCard, medicationsActive);
+  show(elements.medicalTimelineCard, !medicationsActive);
+  elements.medicationsViewTab.classList.toggle("active", medicationsActive);
+  elements.medicationsViewTab.setAttribute("aria-selected", String(medicationsActive));
+  elements.timelineViewTab.classList.toggle("active", !medicationsActive);
+  elements.timelineViewTab.setAttribute("aria-selected", String(!medicationsActive));
 }
 
 function initialTab() {
@@ -402,9 +431,12 @@ elements.frequencyTimes.addEventListener("input", syncFrequencyValue);
 elements.medicineSelect.addEventListener("change", () => updateMedicineControl(true));
 applyTypeDefaults(selectedType());
 setActiveTab(initialTab(), false);
+setMedicalView("medications");
 elements.dashboardTab.addEventListener("click", () => setActiveTab("dashboard"));
 elements.recordTab.addEventListener("click", () => setActiveTab("record"));
 elements.medicalTab.addEventListener("click", () => setActiveTab("medical"));
+elements.medicationsViewTab.addEventListener("click", () => setMedicalView("medications"));
+elements.timelineViewTab.addEventListener("click", () => setMedicalView("timeline"));
 
 if (!configured) {
   show(elements.setup, true);
@@ -413,6 +445,7 @@ if (!configured) {
     auth: { persistSession: true, detectSessionInUrl: true },
   });
   let allRecords = [];
+  let medications = [];
   let medicalHistory = [];
   let currentPage = 1;
   let medicalCurrentPage = 1;
@@ -436,7 +469,7 @@ if (!configured) {
     show(elements.app, signedIn && !settingPassword);
     show(elements.signOut, signedIn && !settingPassword);
     if (signedIn && !settingPassword) {
-      await Promise.all([loadRecords(), loadMedicalHistory()]);
+      await Promise.all([loadRecords(), loadMedications(), loadMedicalHistory()]);
     }
   }
 
@@ -522,6 +555,115 @@ if (!configured) {
     renderMedicalMonthOptions();
     renderMedicalTimeline();
     elements.medicalSyncState.textContent = "已同步";
+  }
+
+  function medicationCatalogErrorMessage(action, error) {
+    const tableMissing =
+      error.code === "42P01" ||
+      error.code === "PGRST205" ||
+      /medications.*does not exist|could not find.*medications|schema cache/i.test(error.message ?? "");
+    if (tableMissing) {
+      return `${action}失败：请先在 Supabase SQL Editor 重新运行 supabase/add_medical_history.sql`;
+    }
+    return `${action}失败：${error.message}`;
+  }
+
+  async function updateMedicationStatus(row, nextStatus, select) {
+    const previousStatus = row.status;
+    select.disabled = true;
+    setMessage(elements.medicationsMessage, "正在更新…");
+    const { error } = await supabase
+      .from("medications")
+      .update({ status: nextStatus })
+      .eq("id", row.id);
+
+    if (error) {
+      select.value = previousStatus;
+      select.disabled = false;
+      setMessage(
+        elements.medicationsMessage,
+        medicationCatalogErrorMessage("更新状态", error),
+        true,
+      );
+      return;
+    }
+
+    await loadMedications();
+    setMessage(
+      elements.medicationsMessage,
+      `${row.medicine} 已更新为“${medicationStatusMeta[nextStatus].label}”`,
+    );
+  }
+
+  function renderMedications() {
+    elements.activeMedications.replaceChildren();
+    elements.inactiveMedications.replaceChildren();
+    const activeRows = medications.filter((row) => row.status === "active");
+    const inactiveRows = medications.filter((row) => row.status !== "active");
+
+    elements.activeMedicationsCount.textContent = String(activeRows.length);
+    show(elements.activeMedicationsEmpty, activeRows.length === 0);
+    show(elements.inactiveMedicationsSection, inactiveRows.length > 0);
+
+    for (const row of [...activeRows, ...inactiveRows]) {
+      const fragment = $("#medication-status-template").content.cloneNode(true);
+      const article = fragment.querySelector("article");
+      const kind = fragment.querySelector(".medication-kind");
+      const name = fragment.querySelector(".medication-name");
+      const plan = fragment.querySelector(".medication-current-plan");
+      const dates = fragment.querySelector(".medication-dates");
+      const statusSelect = fragment.querySelector(".medication-status-select");
+      const schedule = parseFrequency(row.current_frequency);
+      const frequency = schedule
+        ? formatFrequency(schedule.days, schedule.times)
+        : row.current_frequency;
+
+      article.dataset.type = row.type;
+      article.dataset.status = row.status;
+      kind.textContent = typeMeta[row.type]?.label ?? "药物";
+      name.textContent = row.medicine;
+      plan.textContent = `当前方案：${row.current_dose_amount} ${row.current_dose_unit} · ${frequency}`;
+      dates.textContent = `首次记录 ${formatMedicalDate(row.started_on)} · 最近用药 ${formatEventTime(row.last_recorded_at)}`;
+      statusSelect.value = row.status;
+      statusSelect.setAttribute("aria-label", `更新 ${row.medicine} 的状态`);
+      statusSelect.addEventListener("change", () => {
+        updateMedicationStatus(row, statusSelect.value, statusSelect);
+      });
+
+      const target = row.status === "active"
+        ? elements.activeMedications
+        : elements.inactiveMedications;
+      target.append(fragment);
+    }
+  }
+
+  async function loadMedications() {
+    elements.medicationsSyncState.textContent = "同步中…";
+    const { data, error } = await supabase
+      .from("medications")
+      .select("id, type, medicine, status, started_on, current_dose_amount, current_dose_unit, current_frequency, last_recorded_at")
+      .order("medicine", { ascending: true });
+
+    if (error) {
+      elements.medicationsSyncState.textContent = "同步失败";
+      medications = [];
+      renderMedications();
+      setMessage(
+        elements.medicationsMessage,
+        medicationCatalogErrorMessage("读取用药状态", error),
+        true,
+      );
+      return;
+    }
+
+    medications = data ?? [];
+    medications.sort((left, right) => {
+      const activeDifference = Number(right.status === "active") - Number(left.status === "active");
+      return activeDifference || left.medicine.localeCompare(right.medicine, "zh-CN");
+    });
+    renderMedications();
+    elements.medicationsSyncState.textContent = "已同步";
+    setMessage(elements.medicationsMessage, "");
   }
 
   function formatMedicalDate(dateKey) {
@@ -916,7 +1058,9 @@ if (!configured) {
 
       article.dataset.type = meta.className;
       icon.textContent = meta.icon;
-      title.textContent = meta.label;
+      title.textContent = row.type === "inhaled" || row.type === "oral"
+        ? `${meta.label} · ${row.medicine}`
+        : meta.label;
       const eventDate = new Date(row.occurred_at);
       time.dateTime = row.occurred_at;
       time.textContent = new Intl.DateTimeFormat("zh-CN", {
@@ -1111,7 +1255,7 @@ if (!configured) {
       if (isMedicalEvent) {
         await loadMedicalHistory();
       } else {
-        await Promise.all([loadRecords(), loadMedicalHistory()]);
+        await Promise.all([loadRecords(), loadMedications(), loadMedicalHistory()]);
       }
     } else {
       await loadRecords();
@@ -1187,6 +1331,7 @@ if (!configured) {
   });
 
   elements.refresh.addEventListener("click", loadRecords);
+  elements.medicationsRefresh.addEventListener("click", loadMedications);
   elements.medicalRefresh.addEventListener("click", loadMedicalHistory);
   elements.medicalMonthFilter.addEventListener("change", () => {
     medicalCurrentPage = 1;
@@ -1209,6 +1354,7 @@ if (!configured) {
   elements.viewSavedRecord.addEventListener("click", () => {
     if (lastSavedDestination === "medical") {
       setActiveTab("medical");
+      setMedicalView("timeline");
       return;
     }
     elements.recordFilter.value = "all";

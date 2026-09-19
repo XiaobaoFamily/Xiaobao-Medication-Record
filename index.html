@@ -9,7 +9,7 @@
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" href="./icons/favicon-32.png" type="image/png" sizes="32x32" />
     <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
-    <link rel="stylesheet" href="./styles.css?v=22" />
+    <link rel="stylesheet" href="./styles.css?v=23" />
     <title>小宝大事记</title>
   </head>
   <body>
@@ -256,7 +256,35 @@
         </section>
 
         <section class="medical-panel hidden" data-tab-panel="medical" aria-label="医疗记录">
-          <section class="card medical-timeline-card" aria-labelledby="medical-timeline-title">
+          <nav class="medical-view-tabs" role="tablist" aria-label="医疗记录分类">
+            <button id="medications-view-tab" class="medical-view-tab active" type="button" role="tab" aria-selected="true" aria-controls="medications-card">当前用药</button>
+            <button id="timeline-view-tab" class="medical-view-tab" type="button" role="tab" aria-selected="false" aria-controls="medical-timeline-card">医疗时间轴</button>
+          </nav>
+
+          <section id="medications-card" class="card medications-card" role="tabpanel" aria-labelledby="medications-view-tab">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">MEDICATIONS</p>
+                <h2>小宝当前用药</h2>
+              </div>
+              <div class="history-actions">
+                <span id="medications-sync-state" class="sync-state">已同步</span>
+                <button id="medications-refresh" class="text-button" type="button">刷新</button>
+              </div>
+            </div>
+            <section class="medication-group" aria-labelledby="active-medications-title">
+              <h3 id="active-medications-title">正在使用 <span id="active-medications-count">0</span></h3>
+              <div id="active-medications" class="medication-status-list" aria-live="polite"></div>
+              <p id="active-medications-empty" class="empty hidden">目前没有标记为“使用中”的药物。</p>
+            </section>
+            <section id="inactive-medications-section" class="medication-group hidden" aria-labelledby="inactive-medications-title">
+              <h3 id="inactive-medications-title">已结束</h3>
+              <div id="inactive-medications" class="medication-status-list"></div>
+            </section>
+            <p id="medications-message" class="form-message" role="status"></p>
+          </section>
+
+          <section id="medical-timeline-card" class="card medical-timeline-card hidden" role="tabpanel" aria-labelledby="timeline-view-tab medical-timeline-title">
             <div class="section-heading">
               <div>
                 <p class="eyebrow">TIMELINE</p>
@@ -377,7 +405,28 @@
       </article>
     </template>
 
+    <template id="medication-status-template">
+      <article class="medication-status-card">
+        <div class="medication-status-main">
+          <div class="medication-status-heading">
+            <span class="medication-kind"></span>
+            <strong class="medication-name"></strong>
+          </div>
+          <p class="medication-current-plan"></p>
+          <p class="medication-dates"></p>
+        </div>
+        <label class="medication-status-control">
+          <span>状态</span>
+          <select class="medication-status-select" aria-label="更新药物状态">
+            <option value="active">使用中</option>
+            <option value="finished">已用完</option>
+            <option value="stopped">已停药</option>
+          </select>
+        </label>
+      </article>
+    </template>
+
     <script src="./config.js"></script>
-    <script type="module" src="./app.js?v=22"></script>
+    <script type="module" src="./app.js?v=23"></script>
   </body>
 </html>

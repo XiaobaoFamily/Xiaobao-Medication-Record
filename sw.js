@@ -1,9 +1,9 @@
-const CACHE_NAME = "xiaobao-medication-v22";
+const CACHE_NAME = "xiaobao-medication-v23";
 const APP_SHELL = [
   "./",
   "./index.html",
-  "./styles.css?v=22",
-  "./app.js?v=22",
+  "./styles.css?v=23",
+  "./app.js?v=23",
   "./config.js",
   "./manifest.webmanifest",
   "./icons/favicon-32.png",

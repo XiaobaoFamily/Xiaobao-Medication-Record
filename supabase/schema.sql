@@ -72,6 +72,23 @@ add constraint medical_history_details_match_type check (
   or (event_type = 'medication_change' and (dose is not null or frequency is not null))
 );
 
+create table if not exists public.medications (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  type text not null check (type in ('inhaled', 'oral')),
+  medicine text not null check (length(btrim(medicine)) > 0),
+  medicine_key text not null check (length(btrim(medicine_key)) > 0),
+  status text not null default 'active' check (status in ('active', 'finished', 'stopped')),
+  started_on date not null,
+  current_dose_amount numeric not null check (current_dose_amount > 0),
+  current_dose_unit text not null,
+  current_frequency text not null check (length(btrim(current_frequency)) > 0),
+  last_recorded_at timestamptz not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint medications_type_key_unique unique (type, medicine_key)
+);
+
 create index if not exists medical_history_user_date_idx
   on public.medical_history (user_id, occurred_on desc, created_at desc);
 
@@ -101,6 +118,11 @@ create trigger medical_history_set_updated_at
 before update on public.medical_history
 for each row execute function public.set_updated_at();
 
+drop trigger if exists medications_set_updated_at on public.medications;
+create trigger medications_set_updated_at
+before update on public.medications
+for each row execute function public.set_updated_at();
+
 create or replace function public.record_medication_change_in_history()
 returns trigger
 language plpgsql
@@ -110,8 +132,6 @@ as $$
 declare
   previous_record public.medication_records%rowtype;
   medication_label text;
-  medicine_seen_before boolean;
-  medicine_changed boolean;
   dose_changed boolean;
   frequency_changed boolean;
 begin
@@ -121,17 +141,61 @@ begin
 
   medication_label := case new.type when 'inhaled' then '吸入药' else '口服药' end;
 
-  select exists (
-    select 1
-    from public.medication_records as record
-    where record.id <> new.id
-      and lower(btrim(record.medicine)) = lower(btrim(new.medicine))
-      and (record.occurred_at, record.created_at, record.id)
-        < (new.occurred_at, new.created_at, new.id)
+  insert into public.medications (
+    user_id,
+    type,
+    medicine,
+    medicine_key,
+    started_on,
+    current_dose_amount,
+    current_dose_unit,
+    current_frequency,
+    last_recorded_at
   )
-  into medicine_seen_before;
+  values (
+    new.user_id,
+    new.type,
+    new.medicine,
+    lower(btrim(new.medicine)),
+    (new.occurred_at at time zone 'America/Chicago')::date,
+    new.dose_amount,
+    new.dose_unit,
+    new.frequency,
+    new.occurred_at
+  )
+  on conflict (type, medicine_key)
+  do update set
+    medicine = case
+      when excluded.last_recorded_at >= medications.last_recorded_at then excluded.medicine
+      else medications.medicine
+    end,
+    started_on = least(medications.started_on, excluded.started_on),
+    current_dose_amount = case
+      when excluded.last_recorded_at >= medications.last_recorded_at then excluded.current_dose_amount
+      else medications.current_dose_amount
+    end,
+    current_dose_unit = case
+      when excluded.last_recorded_at >= medications.last_recorded_at then excluded.current_dose_unit
+      else medications.current_dose_unit
+    end,
+    current_frequency = case
+      when excluded.last_recorded_at >= medications.last_recorded_at then excluded.current_frequency
+      else medications.current_frequency
+    end,
+    last_recorded_at = greatest(medications.last_recorded_at, excluded.last_recorded_at);
 
-  if not medicine_seen_before then
+  select record.*
+  into previous_record
+  from public.medication_records as record
+  where record.id <> new.id
+    and record.type = new.type
+    and lower(btrim(record.medicine)) = lower(btrim(new.medicine))
+    and (record.occurred_at, record.created_at, record.id)
+      < (new.occurred_at, new.created_at, new.id)
+  order by record.occurred_at desc, record.created_at desc, record.id desc
+  limit 1;
+
+  if not found then
     insert into public.medical_history (
       user_id,
       occurred_on,
@@ -166,26 +230,9 @@ begin
     return new;
   end if;
 
-  select record.*
-  into previous_record
-  from public.medication_records as record
-  where record.id <> new.id
-    and record.type = new.type
-    and (record.occurred_at, record.created_at, record.id)
-      < (new.occurred_at, new.created_at, new.id)
-  order by record.occurred_at desc, record.created_at desc, record.id desc
-  limit 1;
-
-  if not found then
-    return new;
-  end if;
-
-  medicine_changed := previous_record.medicine is distinct from new.medicine;
-  dose_changed := medicine_changed
-    or previous_record.dose_amount is distinct from new.dose_amount
+  dose_changed := previous_record.dose_amount is distinct from new.dose_amount
     or previous_record.dose_unit is distinct from new.dose_unit;
-  frequency_changed := medicine_changed
-    or previous_record.frequency is distinct from new.frequency;
+  frequency_changed := previous_record.frequency is distinct from new.frequency;
 
   if not dose_changed and not frequency_changed then
     return new;
@@ -210,13 +257,12 @@ begin
     case when frequency_changed then new.frequency else null end,
     new.id,
     format(
-      '由%s记录自动生成。原方案：%s，%s %s，%s；新方案：%s，%s %s，%s。',
+      '由%s记录自动生成。药物 %s 的原方案：%s %s，%s；新方案：%s %s，%s。',
       medication_label,
-      previous_record.medicine,
+      new.medicine,
       previous_record.dose_amount,
       previous_record.dose_unit,
       previous_record.frequency,
-      new.medicine,
       new.dose_amount,
       new.dose_unit,
       new.frequency
@@ -354,34 +400,113 @@ using (
     '45d59985-1e2c-424c-841a-18857c9a21a8'::uuid
   )
 );
--- 补齐已有记录中的首次用药和方案变化；来源记录 ID 保证重复运行不会重复添加。
+
+alter table public.medications enable row level security;
+
+drop policy if exists "Caregivers can read shared medications" on public.medications;
+drop policy if exists "Caregivers can update shared medications" on public.medications;
+
+create policy "Caregivers can read shared medications"
+on public.medications for select
+to authenticated
+using (
+  (select auth.uid()) in (
+    'f95b14d7-4881-4433-8442-a401831544e6'::uuid,
+    '45d59985-1e2c-424c-841a-18857c9a21a8'::uuid
+  )
+);
+
+create policy "Caregivers can update shared medications"
+on public.medications for update
+to authenticated
+using (
+  (select auth.uid()) in (
+    'f95b14d7-4881-4433-8442-a401831544e6'::uuid,
+    '45d59985-1e2c-424c-841a-18857c9a21a8'::uuid
+  )
+)
+with check (
+  (select auth.uid()) in (
+    'f95b14d7-4881-4433-8442-a401831544e6'::uuid,
+    '45d59985-1e2c-424c-841a-18857c9a21a8'::uuid
+  )
+  and user_id in (
+    'f95b14d7-4881-4433-8442-a401831544e6'::uuid,
+    '45d59985-1e2c-424c-841a-18857c9a21a8'::uuid
+  )
+);
+
+-- 从现有用药记录建立药物清单；已有状态不会被覆盖。
+with medication_versions as (
+  select
+    record.*,
+    min((record.occurred_at at time zone 'America/Chicago')::date) over medication_group as started_on,
+    row_number() over (
+      partition by record.type, lower(btrim(record.medicine))
+      order by record.occurred_at desc, record.created_at desc, record.id desc
+    ) as latest_number
+  from public.medication_records as record
+  where record.type in ('inhaled', 'oral')
+  window medication_group as (
+    partition by record.type, lower(btrim(record.medicine))
+  )
+)
+insert into public.medications (
+  user_id,
+  type,
+  medicine,
+  medicine_key,
+  started_on,
+  current_dose_amount,
+  current_dose_unit,
+  current_frequency,
+  last_recorded_at
+)
+select
+  version.user_id,
+  version.type,
+  version.medicine,
+  lower(btrim(version.medicine)),
+  version.started_on,
+  version.dose_amount,
+  version.dose_unit,
+  version.frequency,
+  version.occurred_at
+from medication_versions as version
+where version.latest_number = 1
+on conflict (type, medicine_key)
+do update set
+  medicine = excluded.medicine,
+  started_on = least(medications.started_on, excluded.started_on),
+  current_dose_amount = excluded.current_dose_amount,
+  current_dose_unit = excluded.current_dose_unit,
+  current_frequency = excluded.current_frequency,
+  last_recorded_at = excluded.last_recorded_at;
+
+-- 清除尚未手动编辑的旧自动事件，再按“类型 + 药名”重新生成，修复不同口服药互相切换时的误判。
+delete from public.medical_history
+where source_medication_record_id is not null
+  and not is_user_edited;
+
+-- 补齐已有记录中的首次用药和同一种药的方案变化。
 with ordered_medication as (
   select
     record.*,
     lag(record.id) over medication_order as previous_id,
-    lag(record.medicine) over medication_order as previous_medicine,
     lag(record.dose_amount) over medication_order as previous_dose_amount,
     lag(record.dose_unit) over medication_order as previous_dose_unit,
-    lag(record.frequency) over medication_order as previous_frequency,
-    row_number() over (
-      partition by lower(btrim(record.medicine))
-      order by record.occurred_at, record.created_at, record.id
-    ) as medicine_occurrence_number
+    lag(record.frequency) over medication_order as previous_frequency
   from public.medication_records as record
   where record.type in ('inhaled', 'oral')
   window medication_order as (
-    partition by record.type
+    partition by record.type, lower(btrim(record.medicine))
     order by record.occurred_at, record.created_at, record.id
   )
 ),
 changed_medication as (
   select
     ordered.*,
-    ordered.medicine_occurrence_number = 1 as medicine_is_new,
-    (
-      ordered.previous_id is not null
-      and ordered.previous_medicine is distinct from ordered.medicine
-    ) as medicine_changed,
+    ordered.previous_id is null as medicine_is_new,
     (
       ordered.previous_id is not null
       and (
@@ -422,12 +547,12 @@ select
     )
   end,
   case
-    when changed.medicine_is_new or changed.medicine_changed or changed.dose_changed
+    when changed.medicine_is_new or changed.dose_changed
       then concat(changed.dose_amount, ' ', changed.dose_unit)
     else null
   end,
   case
-    when changed.medicine_is_new or changed.medicine_changed or changed.frequency_changed
+    when changed.medicine_is_new or changed.frequency_changed
       then changed.frequency
     else null
   end,
@@ -442,13 +567,12 @@ select
       changed.frequency
     )
     else format(
-      '由历史%s记录自动补充。原方案：%s，%s %s，%s；新方案：%s，%s %s，%s。',
+      '由历史%s记录自动补充。药物 %s 的原方案：%s %s，%s；新方案：%s %s，%s。',
       case changed.type when 'inhaled' then '吸入药' else '口服药' end,
-      changed.previous_medicine,
+      changed.medicine,
       changed.previous_dose_amount,
       changed.previous_dose_unit,
       changed.previous_frequency,
-      changed.medicine,
       changed.dose_amount,
       changed.dose_unit,
       changed.frequency
@@ -456,7 +580,6 @@ select
   end
 from changed_medication as changed
 where changed.medicine_is_new
-  or changed.medicine_changed
   or changed.dose_changed
   or changed.frequency_changed
 on conflict (source_medication_record_id)
