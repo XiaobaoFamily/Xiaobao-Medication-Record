@@ -9,7 +9,7 @@
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" href="./icons/favicon-32.png" type="image/png" sizes="32x32" />
     <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
-    <link rel="stylesheet" href="./styles.css?v=23" />
+    <link rel="stylesheet" href="./styles.css?v=24" />
     <title>小宝大事记</title>
   </head>
   <body>
@@ -158,10 +158,16 @@
             </p>
 
             <div class="form-grid">
-              <label>
-                <span>时间</span>
+              <div class="form-field time-field">
+                <label for="occurred-at"><span>时间</span></label>
                 <input id="occurred-at" name="occurred_at" type="datetime-local" required />
-              </label>
+                <div class="time-shortcuts" role="group" aria-label="快捷调整记录时间">
+                  <button id="time-morning" class="time-shortcut" type="button" aria-controls="occurred-at" aria-label="将记录时间设为早上十点">早上 10:00</button>
+                  <button id="time-evening" class="time-shortcut" type="button" aria-controls="occurred-at" aria-label="将记录时间设为晚上十点">晚上 22:00</button>
+                  <button id="time-minus-30" class="time-shortcut" type="button" aria-controls="occurred-at" aria-label="将记录时间提前三十分钟">− 30 分钟</button>
+                  <button id="time-plus-30" class="time-shortcut" type="button" aria-controls="occurred-at" aria-label="将记录时间推后三十分钟">＋ 30 分钟</button>
+                </div>
+              </div>
               <label id="medicine-field">
                 <span>药物</span>
                 <select id="medicine-select" class="hidden" name="medicine_selection" aria-label="选择药物">
@@ -427,6 +433,6 @@
     </template>
 
     <script src="./config.js"></script>
-    <script type="module" src="./app.js?v=23"></script>
+    <script type="module" src="./app.js?v=24"></script>
   </body>
 </html>

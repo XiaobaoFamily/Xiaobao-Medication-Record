@@ -25,6 +25,10 @@ const elements = {
   recordForm: $("#record-form"),
   formMessage: $("#form-message"),
   occurredAt: $("#occurred-at"),
+  timeMorning: $("#time-morning"),
+  timeEvening: $("#time-evening"),
+  timeMinus30: $("#time-minus-30"),
+  timePlus30: $("#time-plus-30"),
   medicine: $("#medicine"),
   medicineField: $("#medicine-field"),
   medicineSelect: $("#medicine-select") ?? $("#oral-medicine-select"),
@@ -152,6 +156,29 @@ $("#today-label").textContent = new Intl.DateTimeFormat("zh-CN", {
 function localDateTimeValue(date = new Date()) {
   const offset = date.getTimezoneOffset() * 60_000;
   return new Date(date.getTime() - offset).toISOString().slice(0, 16);
+}
+
+function occurredAtDate() {
+  const selectedDate = new Date(elements.occurredAt.value);
+  return Number.isNaN(selectedDate.getTime()) ? new Date() : selectedDate;
+}
+
+function updateOccurredAt(date) {
+  elements.occurredAt.value = localDateTimeValue(date);
+  elements.occurredAt.dispatchEvent(new Event("input", { bubbles: true }));
+  elements.occurredAt.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
+function setOccurredAtClock(hour) {
+  const date = occurredAtDate();
+  date.setHours(hour, 0, 0, 0);
+  updateOccurredAt(date);
+}
+
+function adjustOccurredAtMinutes(minutes) {
+  const date = occurredAtDate();
+  date.setMinutes(date.getMinutes() + minutes);
+  updateOccurredAt(date);
 }
 
 function startOfTodayIso() {
@@ -429,6 +456,10 @@ elements.recordForm?.addEventListener("change", (event) => {
 elements.frequencyDays.addEventListener("input", syncFrequencyValue);
 elements.frequencyTimes.addEventListener("input", syncFrequencyValue);
 elements.medicineSelect.addEventListener("change", () => updateMedicineControl(true));
+elements.timeMorning.addEventListener("click", () => setOccurredAtClock(10));
+elements.timeEvening.addEventListener("click", () => setOccurredAtClock(22));
+elements.timeMinus30.addEventListener("click", () => adjustOccurredAtMinutes(-30));
+elements.timePlus30.addEventListener("click", () => adjustOccurredAtMinutes(30));
 applyTypeDefaults(selectedType());
 setActiveTab(initialTab(), false);
 setMedicalView("medications");

@@ -119,6 +119,10 @@ fieldset { margin: 0 0 24px; padding: 0; border: 0; }
 input[type="datetime-local"], input[type="date"] { display: block; width: 100%; min-width: 0; max-width: 100%; overflow: hidden; -webkit-appearance: none; appearance: none; font-size: 16px; }
 input[type="datetime-local"]::-webkit-date-and-time-value, input[type="date"]::-webkit-date-and-time-value { min-width: 0; text-align: left; }
 input[type="datetime-local"]::-webkit-datetime-edit, input[type="date"]::-webkit-datetime-edit { min-width: 0; padding: 0; }
+.time-shortcuts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; width: 100%; min-width: 0; max-width: 100%; margin-top: 9px; }
+.time-shortcut { min-width: 0; min-height: 44px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 10px; background: var(--soft); color: var(--accent); font-size: 0.75rem; font-weight: 800; }
+.time-shortcut:hover, .time-shortcut:focus-visible { border-color: var(--accent); background: white; }
+.time-shortcut:active { transform: translateY(1px); }
 .wide { grid-column: 1 / -1; }
 .dose-control { display: grid; grid-template-columns: 1fr 95px; }
 .dose-control input { border-radius: 12px 0 0 12px; }
