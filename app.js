@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createInsightsUI } from "./insights.js?v=25";
 
 const config = window.APP_CONFIG ?? {};
 const configured =
@@ -62,6 +63,7 @@ const elements = {
   dashboardTab: $("#dashboard-tab"),
   recordTab: $("#record-tab"),
   medicalTab: $("#medical-tab"),
+  insightsTab: $("#insights-tab"),
   medicationsViewTab: $("#medications-view-tab"),
   timelineViewTab: $("#timeline-view-tab"),
   medicationsCard: $("#medications-card"),
@@ -192,7 +194,7 @@ function show(element, visible) {
 }
 
 function setActiveTab(tab, scrollToTop = true) {
-  const activeTab = ["dashboard", "record", "medical"].includes(tab) ? tab : "record";
+  const activeTab = ["dashboard", "record", "medical", "insights"].includes(tab) ? tab : "record";
   document.querySelectorAll("[data-tab-panel]").forEach((panel) => {
     show(panel, panel.dataset.tabPanel === activeTab);
   });
@@ -206,6 +208,8 @@ function setActiveTab(tab, scrollToTop = true) {
   elements.recordTab.setAttribute("aria-pressed", String(recordActive));
   elements.medicalTab.classList.toggle("active", medicalActive);
   elements.medicalTab.setAttribute("aria-pressed", String(medicalActive));
+  elements.insightsTab.classList.toggle("active", activeTab === "insights");
+  elements.insightsTab.setAttribute("aria-pressed", String(activeTab === "insights"));
 
   try {
     localStorage.setItem(TAB_STORAGE_KEY, activeTab);
@@ -463,9 +467,11 @@ elements.timePlus30.addEventListener("click", () => adjustOccurredAtMinutes(30))
 applyTypeDefaults(selectedType());
 setActiveTab(initialTab(), false);
 setMedicalView("medications");
+const insightsUI = createInsightsUI();
 elements.dashboardTab.addEventListener("click", () => setActiveTab("dashboard"));
 elements.recordTab.addEventListener("click", () => setActiveTab("record"));
 elements.medicalTab.addEventListener("click", () => setActiveTab("medical"));
+elements.insightsTab.addEventListener("click", () => setActiveTab("insights"));
 elements.medicationsViewTab.addEventListener("click", () => setMedicalView("medications"));
 elements.timelineViewTab.addEventListener("click", () => setMedicalView("timeline"));
 
@@ -482,9 +488,13 @@ if (!configured) {
   let medicalCurrentPage = 1;
   let lastSavedDestination = "dashboard";
   let editingMedicalRecord = null;
+  let recordsLoadVersion = 0;
 
   async function renderSession(session) {
     if (session && !allowedUserIds.has(session.user.id)) {
+      recordsLoadVersion++;
+      allRecords = [];
+      insightsUI.setRows([]);
       await supabase.auth.signOut();
       show(elements.auth, true);
       show(elements.app, false);
@@ -494,6 +504,11 @@ if (!configured) {
     }
 
     const signedIn = Boolean(session);
+    if (!signedIn) {
+      recordsLoadVersion++;
+      allRecords = [];
+      insightsUI.setRows([]);
+    }
     const settingPassword = signedIn && passwordRecovery;
     show(elements.auth, !signedIn);
     show(elements.passwordPanel, settingPassword);
@@ -504,13 +519,28 @@ if (!configured) {
     }
   }
 
+  async function loadCompleteRecords() {
+    const rows = [];
+    const batchSize = 500;
+    for (let offset = 0; ; offset += batchSize) {
+      const result = await supabase.from("medication_records")
+        .select("id, occurred_at, created_at, type, medicine, dose_amount, dose_unit, frequency, bowel_movement, urine_amount, note", { count: "exact" })
+        .order("occurred_at", { ascending: false })
+        .order("id", { ascending: false })
+        .range(offset, offset + batchSize - 1);
+      if (result.error) return { data: null, error: result.error };
+      rows.push(...(result.data ?? []));
+      if ((result.count !== null && result.count !== undefined && offset + (result.data?.length ?? 0) >= result.count) || !result.data?.length) break;
+    }
+    return { data: rows, error: null };
+  }
+
   async function loadRecords() {
+    const version = ++recordsLoadVersion;
+    insightsUI.loading();
     elements.syncState.textContent = "同步中…";
     const [recentResult, todayResult, allTimeInhaledResult, allTimeOralResult] = await Promise.all([
-      supabase
-        .from("medication_records")
-        .select("id, occurred_at, created_at, type, medicine, dose_amount, dose_unit, frequency, bowel_movement, urine_amount, note")
-        .order("occurred_at", { ascending: false }),
+      loadCompleteRecords(),
       supabase
         .from("medication_records")
         .select("type")
@@ -525,18 +555,21 @@ if (!configured) {
         .eq("type", "oral"),
     ]);
 
+    if (version !== recordsLoadVersion) return;
     const error =
       recentResult.error ??
       todayResult.error ??
       allTimeInhaledResult.error ??
       allTimeOralResult.error;
     if (error) {
+      insightsUI.error(error.message);
       elements.syncState.textContent = "同步失败";
       setMessage(elements.formMessage, `读取失败：${error.message}`, true);
       return;
     }
 
     allRecords = recentResult.data ?? [];
+    insightsUI.setRows(allRecords);
     updateMedicationDefaults(allRecords);
     if (!medicationDefaultsHydrated) {
       applyTypeDefaults(selectedType());
