@@ -8,7 +8,7 @@ alter table public.medication_records drop constraint if exists medication_detai
 alter table public.medication_records drop constraint if exists supplement_action_matches_type;
 alter table public.medication_records
 add constraint medication_details_match_type check (
-    (type = 'supplement' and medicine is null and dose_amount is not null and dose_amount > 0 and dose_unit is not null and frequency is null and bowel_movement is null and urine_amount is null)
+    (type = 'supplement' and medicine is null and dose_amount is not null and dose_amount > 0 and dose_unit is not null and (frequency is null or length(btrim(frequency)) > 0) and bowel_movement is null and urine_amount is null)
     or
     (type = 'inhaled' and medicine is not null and dose_amount > 0 and dose_unit is not null and frequency is not null and bowel_movement is null and urine_amount is null)
     or (type = 'oral' and medicine is not null and dose_amount > 0 and dose_unit is not null and frequency is not null and bowel_movement is null and urine_amount is null)

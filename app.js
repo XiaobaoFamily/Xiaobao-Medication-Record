@@ -420,15 +420,15 @@ function applyTypeDefaults(type) {
   show(elements.medicineField, isMedication);
   show(elements.recordMedicalTitleField, isMedicalEvent);
   show(elements.doseField, isMedication || isSupplement);
-  show(elements.frequencyField, isMedication);
+  show(elements.frequencyField, isMedication || isSupplement);
   show(elements.medicationHistoryHint, isMedication);
   show(elements.bowelMovementField, isElimination);
   show(elements.urineAmountField, isElimination);
   elements.medicine.required = false;
   elements.recordMedicalTitle.required = isMedicalEvent;
   elements.doseAmount.required = isMedication || isSupplement;
-  elements.frequencyDays.required = isMedication;
-  elements.frequencyTimes.required = isMedication;
+  elements.frequencyDays.required = isMedication || isSupplement;
+  elements.frequencyTimes.required = isMedication || isSupplement;
   elements.bowelMovement.required = isElimination;
   elements.urineAmount.required = isElimination;
 
@@ -1142,7 +1142,7 @@ if (!configured) {
       const occurrence = occurrenceById.get(row.id);
       if (row.type === "supplement") {
         title.textContent = `补剂 · ${row.supplement_action === "start" ? "开始" : "结束"}`;
-        dose.textContent = `剂量：${row.dose_amount} ${row.dose_unit}`;
+        dose.textContent = `剂量：${row.dose_amount} ${row.dose_unit} · 频率：${row.frequency || "未记录"}`;
       } else if (row.type === "behavior") {
         dose.textContent = `当天第 ${occurrence} 条行为记录`;
       } else if (row.type === "brushing") {
@@ -1244,7 +1244,7 @@ if (!configured) {
     const isMedication = type === "inhaled" || type === "oral";
     const isElimination = type === "elimination";
     const isMedicalEvent = type === "vaccine" || type === "illness";
-    if (isMedication) syncFrequencyValue();
+    if (isMedication || type === "supplement") syncFrequencyValue();
     const medicine = isMedication ? selectedMedicineName() : null;
     if (isMedication && !medicine) {
       setMessage(elements.formMessage, "请输入药物名称。", true);
@@ -1274,7 +1274,7 @@ if (!configured) {
           medicine,
           dose_amount: isMedication || type === "supplement" ? Number(elements.doseAmount.value) : null,
           dose_unit: isMedication || type === "supplement" ? elements.doseUnit.value : null,
-          frequency: isMedication ? elements.frequency.value : null,
+          frequency: isMedication || type === "supplement" ? elements.frequency.value : null,
           bowel_movement: isElimination ? elements.bowelMovement.value === "true" : null,
           urine_amount: isElimination ? Number(elements.urineAmount.value) : null,
           note,
