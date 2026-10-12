@@ -1,10 +1,10 @@
-const CACHE_NAME = "xiaobao-medication-v29";
+const CACHE_NAME = "xiaobao-medication-v30";
 const APP_SHELL = [
   "./",
   "./index.html",
-  "./styles.css?v=29",
-  "./app.js?v=29",
-  "./insights.js?v=29",
+  "./styles.css?v=30",
+  "./app.js?v=30",
+  "./insights.js?v=30",
   "./insights-data.js",
   "./config.js",
   "./manifest.webmanifest",

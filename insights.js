@@ -55,24 +55,41 @@ function medication(ctx, data, med, top, compact = false) {
   }
   for (const value of a.ticks) line(ctx, a.left, a.y(value), a.rightX, a.y(value));
   text(ctx, `Daily total (${med.unit})`, a.left, top - 18, 20);
-  text(ctx, 'Doses/day', a.rightX + 15, top - 18, 19, '#7a5195');
+  text(ctx, 'Recorded doses/day', a.rightX + 15, top - 18, 18, '#7a5195');
   const maxFreq = Math.max(2, ...med.daily.map((d) => d.count));
+  const frequencyY = (count) => a.bottom - count / (maxFreq + 1) * height;
   for (let i = 0; i <= maxFreq; i++) text(ctx, String(i), a.rightX + 16, a.bottom - i / (maxFreq + 1) * height + 6, 20, '#7a5195');
-  let previous;
+  const doseColor = med.name === 'Fluticasone' ? blue : orange;
   for (const day of med.daily) {
     if (day.valid) {
       const xx = a.x(day.date); const yy = a.y(day.total);
-      if (med.name === 'Fluticasone') {
-        ctx.fillStyle = '#3274a144'; const w = Math.min(25, a.width / a.days * .6);
-        ctx.fillRect(xx - w / 2, yy, w, a.bottom - yy);
-        if (previous && dateNumber(day.date) - dateNumber(previous.date) === 1) line(ctx, a.x(previous.date), a.y(previous.total), xx, yy, blue, 2);
-      } else line(ctx, xx, a.bottom, xx, yy, orange, 2);
-      dot(ctx, xx, yy, 5, med.name === 'Fluticasone' ? blue : orange);
-      previous = day;
-    } else previous = null;
-    dot(ctx, a.x(day.date), a.bottom - day.count / (maxFreq + 1) * height, 5, '#7a5195');
+      ctx.fillStyle = `${doseColor}bb`;
+      const w = Math.min(32, a.width / a.days * .65);
+      ctx.fillRect(xx - w / 2, yy, w, a.bottom - yy);
+    }
   }
-  const base = a.bottom + 114;
+  // Each horizontal segment covers only a day with recorded administrations.
+  // Consecutive days meet at their shared boundary; gaps remain disconnected.
+  let previous;
+  for (const day of med.daily) {
+    const from = a.edge(day.date); const to = a.edge(dayString(dateNumber(day.date) + 1));
+    const yy = frequencyY(day.count);
+    if (previous && dateNumber(day.date) - dateNumber(previous.date) === 1) {
+      line(ctx, from, frequencyY(previous.count), from, yy, '#ffffff', 6);
+      line(ctx, from, frequencyY(previous.count), from, yy, '#7a5195', 3);
+    }
+    line(ctx, from, yy, to, yy, '#ffffff', 6);
+    line(ctx, from, yy, to, yy, '#7a5195', 3);
+    previous = day;
+  }
+  const seriesY = a.bottom + 114;
+  ctx.fillStyle = `${doseColor}bb`;ctx.fillRect(100, seriesY - 17, 22, 20);
+  text(ctx, 'Daily dose: bars (left axis)', 135, seriesY, 18);
+  line(ctx, 600, seriesY - 5, 618, seriesY - 5, '#7a5195', 3);
+  line(ctx, 618, seriesY - 5, 618, seriesY - 16, '#7a5195', 3);
+  line(ctx, 618, seriesY - 16, 636, seriesY - 16, '#7a5195', 3);
+  text(ctx, 'Recorded doses/day: steps (right axis)', 650, seriesY, 18);
+  const base = seriesY + 38;
   keys.forEach((label, i) => {
     const xx = 100 + i % 3 * 465; const yy = base + Math.floor(i / 3) * 34;
     ctx.fillStyle = palette[i % palette.length]; ctx.fillRect(xx, yy - 16, 24, 20);
@@ -139,11 +156,11 @@ function timeOfDay(ctx, data) {
 
 export function renderChart(canvas, kind, data) {
   const legendRows = (med) => Math.max(1, Math.ceil(new Set(med.stages.map((s) => s.label)).size / 3));
-  const afterMedication = (top, med) => top + 270 + 114 + (legendRows(med) - 1) * 34 + 105;
+  const afterMedication = (top, med) => top + 270 + 152 + (legendRows(med) - 1) * 34 + 105;
   const predTop = afterMedication(170, data.fluticasone);
   const coughTop = afterMedication(predTop, data.prednisolone);
   canvas.width = 1600;
-  canvas.height = kind === 3 ? Math.max(1800, coughTop + 540) : kind < 2 ? Math.max(900, 850 + (legendRows(kind === 0 ? data.fluticasone : data.prednisolone) - 1) * 34) : 900;
+  canvas.height = kind === 3 ? Math.max(1800, coughTop + 540) : kind < 2 ? Math.max(900, 888 + (legendRows(kind === 0 ? data.fluticasone : data.prednisolone) - 1) * 34) : 900;
   const ctx = canvas.getContext('2d'); ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
   text(ctx, titles[kind], 80, 50, 30);
   text(ctx, `${data.start} to ${data.end} (Chicago local time)`, 80, 87, 21, '#586976');
