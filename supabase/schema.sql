@@ -5,7 +5,8 @@ create table if not exists public.medication_records (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
   occurred_at timestamptz not null default now(),
-  type text not null check (type in ('inhaled', 'oral', 'behavior', 'brushing', 'elimination')),
+  type text not null check (type in ('inhaled', 'oral', 'behavior', 'brushing', 'elimination', 'supplement')),
+  supplement_action text,
   medicine text,
   dose_amount numeric,
   dose_unit text check (dose_unit in ('mcg', 'mg', 'g', 'mL', 'IU', '片', '粒', '滴', '喷')),
@@ -17,10 +18,16 @@ create table if not exists public.medication_records (
   updated_at timestamptz not null default now(),
 
   constraint medication_details_match_type check (
+    (type = 'supplement' and medicine is null and dose_amount is not null and dose_amount > 0 and dose_unit is not null and frequency is null and bowel_movement is null and urine_amount is null)
+    or
     (type = 'inhaled' and medicine is not null and dose_amount > 0 and dose_unit is not null and frequency is not null and bowel_movement is null and urine_amount is null)
     or (type = 'oral' and medicine is not null and dose_amount > 0 and dose_unit is not null and frequency is not null and bowel_movement is null and urine_amount is null)
     or (type in ('behavior', 'brushing') and medicine is null and dose_amount is null and dose_unit is null and frequency is null and bowel_movement is null and urine_amount is null)
     or (type = 'elimination' and medicine is null and dose_amount is null and dose_unit is null and frequency is null and bowel_movement is not null and urine_amount is not null)
+  ),
+  constraint supplement_action_matches_type check (
+    (type = 'supplement' and supplement_action is not null and supplement_action in ('start', 'end'))
+    or (type <> 'supplement' and supplement_action is null)
   )
 );
 

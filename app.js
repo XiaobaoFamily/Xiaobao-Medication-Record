@@ -37,6 +37,8 @@ const elements = {
   recordMedicalTitleField: $("#record-medical-title-field"),
   recordMedicalTitleLabel: $("#record-medical-title-label"),
   doseField: $("#dose-field"),
+  supplementActionField: $("#supplement-action-field"),
+  supplementAction: $("#supplement-action"),
   doseAmount: $("#dose-amount"),
   doseUnit: $("#dose-unit"),
   frequency: $("#frequency"),
@@ -111,6 +113,7 @@ const PREDNISOLONE_NAME = "Prednisolone";
 const NEW_MEDICINE_VALUE = "__new__";
 
 const typeMeta = {
+  supplement: { label: "补剂", icon: "补", className: "supplement" },
   inhaled: { label: "吸入药", icon: "吸", className: "inhaled" },
   oral: { label: "口服药", icon: "服", className: "oral" },
   behavior: { label: "小宝行为", icon: "记", className: "behavior" },
@@ -410,18 +413,20 @@ function updateMedicationDefaults(rows) {
 
 function applyTypeDefaults(type) {
   const isMedication = type === "inhaled" || type === "oral";
+  const isSupplement = type === "supplement";
+  show(elements.supplementActionField, isSupplement);
   const isElimination = type === "elimination";
   const isMedicalEvent = type === "vaccine" || type === "illness";
   show(elements.medicineField, isMedication);
   show(elements.recordMedicalTitleField, isMedicalEvent);
-  show(elements.doseField, isMedication);
+  show(elements.doseField, isMedication || isSupplement);
   show(elements.frequencyField, isMedication);
   show(elements.medicationHistoryHint, isMedication);
   show(elements.bowelMovementField, isElimination);
   show(elements.urineAmountField, isElimination);
   elements.medicine.required = false;
   elements.recordMedicalTitle.required = isMedicalEvent;
-  elements.doseAmount.required = isMedication;
+  elements.doseAmount.required = isMedication || isSupplement;
   elements.frequencyDays.required = isMedication;
   elements.frequencyTimes.required = isMedication;
   elements.bowelMovement.required = isElimination;
@@ -524,7 +529,7 @@ if (!configured) {
     const batchSize = 500;
     for (let offset = 0; ; offset += batchSize) {
       const result = await supabase.from("medication_records")
-        .select("id, occurred_at, created_at, type, medicine, dose_amount, dose_unit, frequency, bowel_movement, urine_amount, note", { count: "exact" })
+        .select("*", { count: "exact" })
         .order("occurred_at", { ascending: false })
         .order("id", { ascending: false })
         .range(offset, offset + batchSize - 1);
@@ -1135,7 +1140,10 @@ if (!configured) {
       }).format(eventDate);
 
       const occurrence = occurrenceById.get(row.id);
-      if (row.type === "behavior") {
+      if (row.type === "supplement") {
+        title.textContent = `补剂 · ${row.supplement_action === "start" ? "开始" : "结束"}`;
+        dose.textContent = `剂量：${row.dose_amount} ${row.dose_unit}`;
+      } else if (row.type === "behavior") {
         dose.textContent = `当天第 ${occurrence} 条行为记录`;
       } else if (row.type === "brushing") {
         dose.textContent = `当天第 ${occurrence} 次刷牙`;
@@ -1264,13 +1272,14 @@ if (!configured) {
           occurred_at: occurredAt.toISOString(),
           type,
           medicine,
-          dose_amount: isMedication ? Number(elements.doseAmount.value) : null,
-          dose_unit: isMedication ? elements.doseUnit.value : null,
+          dose_amount: isMedication || type === "supplement" ? Number(elements.doseAmount.value) : null,
+          dose_unit: isMedication || type === "supplement" ? elements.doseUnit.value : null,
           frequency: isMedication ? elements.frequency.value : null,
           bowel_movement: isElimination ? elements.bowelMovement.value === "true" : null,
           urine_amount: isElimination ? Number(elements.urineAmount.value) : null,
           note,
         };
+    if (type === "supplement") payload.supplement_action = elements.supplementAction.value;
     const { error } = isMedicalEvent
       ? await supabase.from("medical_history").insert(payload)
       : await supabase.from("medication_records").insert(payload);

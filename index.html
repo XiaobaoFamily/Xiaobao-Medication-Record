@@ -9,7 +9,7 @@
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" href="./icons/favicon-32.png" type="image/png" sizes="32x32" />
     <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
-    <link rel="stylesheet" href="./styles.css?v=25" />
+    <link rel="stylesheet" href="./styles.css?v=26" />
     <title>小宝大事记</title>
   </head>
   <body>
@@ -145,6 +145,7 @@
               <div class="segmented">
                 <label><input type="radio" name="type" value="inhaled" checked /><span>吸入药</span></label>
                 <label><input type="radio" name="type" value="oral" /><span>口服药</span></label>
+                <label><input type="radio" name="type" value="supplement" /><span>补剂</span></label>
                 <label><input type="radio" name="type" value="behavior" /><span>小宝行为</span></label>
                 <label><input type="radio" name="type" value="brushing" /><span>刷牙</span></label>
                 <label><input type="radio" name="type" value="elimination" /><span>排泄</span></label>
@@ -183,6 +184,13 @@
               <label id="record-medical-title-field" class="hidden">
                 <span id="record-medical-title-label">疫苗名称</span>
                 <input id="record-medical-title" name="medical_title" placeholder="例如：狂犬疫苗" />
+              </label>
+              <label id="supplement-action-field" class="hidden">
+                <span>开始 / 结束</span>
+                <select id="supplement-action" name="supplement_action">
+                  <option value="start">开始</option>
+                  <option value="end">结束</option>
+                </select>
               </label>
               <label id="dose-field">
                 <span>剂量</span>
@@ -245,6 +253,7 @@
                 <option value="all">全部类型</option>
                 <option value="inhaled">吸入药</option>
                 <option value="oral">口服药</option>
+                <option value="supplement">补剂</option>
                 <option value="behavior">小宝行为</option>
                 <option value="brushing">刷牙</option>
                 <option value="elimination">排泄</option>
@@ -466,6 +475,6 @@
     </template>
 
     <script src="./config.js"></script>
-    <script type="module" src="./app.js?v=25"></script>
+    <script type="module" src="./app.js?v=26"></script>
   </body>
 </html>

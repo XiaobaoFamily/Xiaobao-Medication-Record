@@ -36,6 +36,8 @@ python3 -m http.server 8080
 
 ## 数据设计
 
+补剂（`supplement`）记录开始或结束（`supplement_action` 为 `start` / `end`）及剂量；`occurred_at` 就是开始/结束时间。无需填写药名或频率，备注可选；不计入用药次数或自动医疗时间轴。已有数据库在部署前先运行 `supabase/add_supplement.sql`，无需重跑其他旧迁移。
+
 - `occurred_at`：事件实际发生时间（带时区）
 - `type`：`inhaled`、`oral`、`behavior`、`brushing`、`elimination`
 - `medicine`：行为记录时为空
