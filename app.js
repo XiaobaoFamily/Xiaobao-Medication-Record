@@ -39,6 +39,8 @@ const elements = {
   doseField: $("#dose-field"),
   supplementActionField: $("#supplement-action-field"),
   supplementAction: $("#supplement-action"),
+  supplementNameField: $("#supplement-name-field"),
+  supplementName: $("#supplement-name"),
   doseAmount: $("#dose-amount"),
   doseUnit: $("#dose-unit"),
   frequency: $("#frequency"),
@@ -415,6 +417,8 @@ function applyTypeDefaults(type) {
   const isMedication = type === "inhaled" || type === "oral";
   const isSupplement = type === "supplement";
   show(elements.supplementActionField, isSupplement);
+  show(elements.supplementNameField, isSupplement);
+  elements.supplementName.required = isSupplement;
   const isElimination = type === "elimination";
   const isMedicalEvent = type === "vaccine" || type === "illness";
   show(elements.medicineField, isMedication);
@@ -1141,7 +1145,7 @@ if (!configured) {
 
       const occurrence = occurrenceById.get(row.id);
       if (row.type === "supplement") {
-        title.textContent = `补剂 · ${row.supplement_action === "start" ? "开始" : "结束"}`;
+        title.textContent = `补剂 · ${row.medicine || "未记录名称"} · ${row.supplement_action === "start" ? "开始" : "结束"}`;
         dose.textContent = `剂量：${row.dose_amount} ${row.dose_unit} · 频率：${row.frequency || "未记录"}`;
       } else if (row.type === "behavior") {
         dose.textContent = `当天第 ${occurrence} 条行为记录`;
@@ -1245,10 +1249,12 @@ if (!configured) {
     const isElimination = type === "elimination";
     const isMedicalEvent = type === "vaccine" || type === "illness";
     if (isMedication || type === "supplement") syncFrequencyValue();
-    const medicine = isMedication ? selectedMedicineName() : null;
-    if (isMedication && !medicine) {
-      setMessage(elements.formMessage, "请输入药物名称。", true);
-      elements.medicine.focus();
+    const medicine = type === "supplement"
+      ? elements.supplementName.value.trim()
+      : isMedication ? selectedMedicineName() : null;
+    if ((isMedication || type === "supplement") && !medicine) {
+      setMessage(elements.formMessage, type === "supplement" ? "请输入补剂名称。" : "请输入药物名称。", true);
+      (type === "supplement" ? elements.supplementName : elements.medicine).focus();
       return;
     }
 

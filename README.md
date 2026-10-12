@@ -36,7 +36,7 @@ python3 -m http.server 8080
 
 ## 数据设计
 
-补剂（`supplement`）记录开始或结束（`supplement_action` 为 `start` / `end`）、剂量和“每 X 天 X 次”频率；`occurred_at` 就是开始/结束时间。无需填写药名，备注可选；不计入用药次数或自动医疗时间轴。已有数据库在部署前运行最新 `supabase/add_supplement.sql`（之前执行过也需重跑），无需重跑其他旧迁移。旧补剂记录没有频率时保留为空，显示“未记录”。
+补剂（`supplement`）记录名称（存入 `medicine`）、开始或结束（`supplement_action` 为 `start` / `end`）、剂量和“每 X 天 X 次”频率；`occurred_at` 就是开始/结束时间。名称必填，备注可选；不计入用药次数或自动医疗时间轴。已有数据库在部署前运行最新 `supabase/add_supplement.sql`（之前执行过也需重跑），无需重跑其他旧迁移。旧补剂记录没有名称或频率时保留为空，显示“未记录名称”或“未记录”。
 
 - `occurred_at`：事件实际发生时间（带时区）
 - `type`：`inhaled`、`oral`、`behavior`、`brushing`、`elimination`

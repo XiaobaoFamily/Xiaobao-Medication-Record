@@ -9,7 +9,7 @@
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" href="./icons/favicon-32.png" type="image/png" sizes="32x32" />
     <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
-    <link rel="stylesheet" href="./styles.css?v=27" />
+    <link rel="stylesheet" href="./styles.css?v=28" />
     <title>小宝大事记</title>
   </head>
   <body>
@@ -191,6 +191,10 @@
                   <option value="start">开始</option>
                   <option value="end">结束</option>
                 </select>
+              </label>
+              <label id="supplement-name-field" class="hidden">
+                <span>补剂名称</span>
+                <input id="supplement-name" name="supplement_name" placeholder="例如：益生菌、鱼油" />
               </label>
               <label id="dose-field">
                 <span>剂量</span>
@@ -475,6 +479,6 @@
     </template>
 
     <script src="./config.js"></script>
-    <script type="module" src="./app.js?v=27"></script>
+    <script type="module" src="./app.js?v=28"></script>
   </body>
 </html>
