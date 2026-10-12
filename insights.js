@@ -15,14 +15,15 @@ function line(ctx, x1, y1, x2, y2, color = '#d9e0e6', width = 1) {
 function dot(ctx, x, y, radius, color) {
   ctx.beginPath(); ctx.fillStyle = color; ctx.arc(x, y, radius, 0, Math.PI * 2); ctx.fill();
 }
-function axis(ctx, data, top, height, max, { time = false, right = 220 } = {}) {
+function axis(ctx, data, top, height, max, { time = false, right = 220, tickStep = max / 4 } = {}) {
   const left = 100; const bottom = top + height; const width = 1600 - left - right;
   const start = dateNumber(data.start); const days = dateNumber(data.end) - start + 1;
   const x = (day) => left + ((dateNumber(day) - start + .5) / days) * width;
   const edge = (day) => left + ((dateNumber(day) - start) / days) * width;
   const y = (value) => bottom - value / max * height;
-  for (let i = 0; i <= (time ? 8 : 4); i++) {
-    const value = max * i / (time ? 8 : 4);
+  const spacing = time ? 3 : tickStep;
+  const ticks = Array.from({ length: Math.round(max / spacing) + 1 }, (_, i) => i * spacing);
+  for (const value of ticks) {
     line(ctx, left, y(value), left + width, y(value));
     text(ctx, time ? `${String(value).padStart(2, '0')}:00` : String(Math.round(value * 10) / 10), left - 15, y(value) + 7, 21, ink, 'right');
   }
@@ -36,13 +37,15 @@ function axis(ctx, data, top, height, max, { time = false, right = 220 } = {}) {
     text(ctx, day.slice(5), x(day), bottom + 35, 20, ink, 'center');
   }
   text(ctx, 'Date (Chicago local time)', left + width / 2, bottom + 74, 22, ink, 'center');
-  return { x, y, edge, left, rightX: left + width, top, bottom, width, days };
+  return { x, y, edge, left, rightX: left + width, top, bottom, width, days, ticks };
 }
 
 function medication(ctx, data, med, top, compact = false) {
   const height = compact ? 270 : 430;
-  const max = Math.max(med.name === 'Fluticasone' ? 440 : 5, ...med.daily.filter((d) => d.valid).map((d) => d.total)) * 1.35;
-  const a = axis(ctx, data, top, height, max);
+  const tickStep = med.name === 'Fluticasone' ? 110 : 2.5;
+  const peak = Math.max(med.name === 'Fluticasone' ? 440 : 5, ...med.daily.filter((d) => d.valid).map((d) => d.total));
+  const max = Math.ceil(peak / tickStep) * tickStep;
+  const a = axis(ctx, data, top, height, max, { tickStep });
   const keys = [...new Set(med.stages.map((s) => s.label))];
   // Draw the bands behind the dose marks, then redraw the grid.
   for (const s of med.stages) {
@@ -50,7 +53,7 @@ function medication(ctx, data, med, top, compact = false) {
     ctx.fillRect(a.edge(s.start), top, a.edge(s.end) - a.edge(s.start), height);
     if (a.edge(s.end) - a.edge(s.start) > 195) text(ctx, s.label, (a.edge(s.start) + a.edge(s.end)) / 2, top + 32, 19, ink, 'center');
   }
-  for (let i = 0; i <= 4; i++) line(ctx, a.left, a.y(max * i / 4), a.rightX, a.y(max * i / 4));
+  for (const value of a.ticks) line(ctx, a.left, a.y(value), a.rightX, a.y(value));
   text(ctx, `Daily total (${med.unit})`, a.left, top - 18, 20);
   text(ctx, 'Doses/day', a.rightX + 15, top - 18, 19, '#7a5195');
   const maxFreq = Math.max(2, ...med.daily.map((d) => d.count));
@@ -80,8 +83,8 @@ function medication(ctx, data, med, top, compact = false) {
 
 function cough(ctx, data, top, compact = false) {
   const height = compact ? 320 : 430;
-  const max = Math.max(20, ...data.coughDaily.map((d) => (d.high ?? d.low) + 10)) * 1.15;
-  const a = axis(ctx, data, top, height, max);
+  const max = Math.ceil(Math.max(20, ...data.coughDaily.map((d) => (d.high ?? d.low) + 10)) / 20) * 20;
+  const a = axis(ctx, data, top, height, max, { tickStep: 20 });
   text(ctx, 'Estimated coughs/day', a.left, top - 18, 20);
   text(ctx, 'Episodes/day', a.rightX + 15, top - 18, 19);
   const maxFreq = Math.max(2, ...data.coughDaily.map((d) => d.count));
