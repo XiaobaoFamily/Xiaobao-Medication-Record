@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { createInsightsUI } from "./insights.js?v=30";
+import { createInsightsUI } from "./insights.js?v=31";
 
 const config = window.APP_CONFIG ?? {};
 const configured =

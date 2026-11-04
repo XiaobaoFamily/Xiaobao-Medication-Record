@@ -228,6 +228,8 @@ code { padding: 2px 6px; border-radius: 5px; background: var(--soft); }
 .insight-chart h3 { font-size: 16px; margin: 0 0 12px; }
 .insight-chart-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; }
 .insight-chart canvas { display: block; width: 100%; min-width: 760px; height: auto; }
+.insight-chart-frame { position: relative; width: 100%; min-width: 760px; overflow: hidden; }
+.insight-chart-frame canvas { position: absolute; left: 0; top: 0; width: 1600px; min-width: 1600px; transform-origin: top left; }
 .insights-source summary { cursor: pointer; font-weight: 700; }
 .insights-table-scroll { overflow-x: auto; }
 .insights-table { border-collapse: collapse; width: 100%; font-size: 14px; }
