@@ -1,11 +1,8 @@
 import * as echarts from './vendor/echarts/echarts.esm.min.js';
 import { dateNumber, dayString } from './insights-data.js';
+import { regimenColor } from './regimen-colors.js';
 
 const ink = '#24313d', muted = '#586976', episodeColor = '#3274a1', red = '#c44e52';
-const colors = {
-  Fluticasone: ['#c9e5f2', '#95c9e0', '#d9edf5', '#71b1cf', '#b1d4eb'],
-  Prednisolone: ['#f8dbaf', '#efbb78', '#f9e8cd', '#e7a45c', '#f5cf9e'],
-};
 const observers = new WeakMap();
 const font = (size, bold = false) => `${bold ? '600 ' : ''}${size}px system-ui, sans-serif`;
 const text = (value, x, y, size = 20, fill = ink, bold = false) => ({
@@ -116,13 +113,14 @@ function annotations(data, max, gridIndex) {
 export function renderRegimenChart(canvas, data, single = null) {
   const meds = single ? [data[single]] : [data.fluticasone, data.prednisolone];
   const combined = !single, end = dateNumber(data.end) + 1;
-  const schemes = meds.flatMap((med, lane) => {
-    const keys = [...new Set(med.stages.map(s => s.label))];
-    return med.stages.map((s, i) => ({ ...s, lane, id: `${med.name === 'Fluticasone' ? 'F' : 'P'}${i + 1}`,
-      color: colors[med.name][keys.indexOf(s.label) % 5], last: dateNumber(s.end) === end, endDate: dayString(dateNumber(s.end) - 1) }));
-  });
+  const schemes = meds.flatMap((med, lane) => med.stages.map((s, i) => {
+    const color = regimenColor(med.name, s.label);
+    return { ...s, lane, id: `${med.name === 'Fluticasone' ? 'F' : 'P'}${i + 1}`,
+      color: color.fill, colorStatus: color.status, dailyAverage: color.dailyAverage, unit: color.unit, last: dateNumber(s.end) === end, endDate: dayString(dateNumber(s.end) - 1) };
+  }));
   const graphics = header(combined ? 'Medication Regimens and Cough Timeline' : `${meds[0].name} Regimen Timeline`, data);
-  graphics.push(text('Dose per administration + recorded regimen frequency', 100, 135, 22, muted));
+  graphics.push(text('Color: scheduled average dose per day within each medication', 100, 135, 22, muted),
+    text('Darker = higher daily average; mixed regimens: simple mean; unfilled = missing data.', 100, 164, 18, muted));
   meds.forEach((med, i) => graphics.push(text(med.name, 100, 192 + i * 120, 24, ink, true)));
   const tableTop = combined ? 1060 : 460;
   graphics.push(text('Regimen dates and doses', 80, tableTop, 26, ink, true));
@@ -133,9 +131,10 @@ export function renderRegimenChart(canvas, data, single = null) {
     let y = tableTop + 90;
     if (!med.stages.length) graphics.push(text('No regimen recorded.', x, y + 10, 20, muted));
     for (const s of schemes.filter(s => s.lane === lane)) {
-      const lines = wrap(s.label, combined ? 43 : 95), height = lines.length * 26 + 44 + (s.last ? 25 : 0);
+      const average = s.dailyAverage === null ? 'daily average unavailable' : `~${Number(s.dailyAverage.toPrecision(4))} ${s.unit}/day${s.colorStatus === 'mixed' ? ' (simple mean)' : ''}`;
+      const lines = wrap(`${s.label}  |  ${average}`, combined ? 43 : 95), height = lines.length * 26 + 44 + (s.last ? 25 : 0);
       graphics.push({ type: 'rect', silent: true, shape: { x, y, width, height: height - 8, r: 8 }, style: { fill: '#f5f8fa' } },
-        { type: 'rect', silent: true, shape: { x: x + 12, y: y + 12, width: 49, height: 30, r: 5 }, style: { fill: s.color } }, text(s.id, x + 19, y + 17, 18, ink, true));
+        { type: 'rect', silent: true, shape: { x: x + 12, y: y + 12, width: 49, height: 30, r: 5 }, style: { fill: s.color, stroke: s.colorStatus === 'unknown' ? '#8a99a5' : undefined, lineWidth: 1, lineDash: s.colorStatus === 'unknown' ? [4, 3] : undefined } }, text(s.id, x + 19, y + 17, 18, ink, true));
       lines.forEach((line, i) => graphics.push(text(line, x + 78, y + 11 + i * 26, 21, ink, true)));
       graphics.push(text(`${s.start}  to  ${s.endDate}`, x + 78, y + 15 + lines.length * 26, 20, muted));
       if (s.last) graphics.push(text('Through selected range end; stop date not established', x + 78, y + 41 + lines.length * 26, 18, muted));
@@ -146,12 +145,12 @@ export function renderRegimenChart(canvas, data, single = null) {
   const height = Math.max(combined ? 1500 : 900, tableBottom + 140);
   graphics.push(text('Regimen intervals follow recorded changes; gaps between dose logs do not establish a stop date.', 80, height - 105, 20, muted),
     text('A regimen at the range start may continue from an earlier record. Table date ranges are inclusive.', 80, height - 73, 20, muted),
-    text(combined ? 'Cough bars show recorded episodes, not individual coughs. A day without a log does not confirm no symptoms.' : 'Timeline doses are per administration; frequencies describe the recorded regimen, not verified daily adherence.', 80, height - 41, 20, muted));
+    text(combined ? 'Colors show schedule averages, not confirmed doses. No cough log does not confirm no symptoms.' : 'Daily averages are calculated from recorded dose and frequency; they are not confirmed doses actually given.', 80, height - 41, 20, muted));
   const series = [{ name: 'Medication regimen', type: 'custom', xAxisIndex: 0, yAxisIndex: 0, encode: { x: [0, 1], y: 2 },
     data: schemes.map((s, i) => [dateNumber(s.start), dateNumber(s.end), s.lane, i]),
     renderItem: (params, api) => {
       const s = schemes[api.value(3)], a = api.coord([api.value(0), api.value(2)]), b = api.coord([api.value(1), api.value(2)]), width = b[0] - a[0];
-      const children = [{ type: 'rect', shape: { x: a[0] + 1, y: a[1] - 37, width: Math.max(1, width - 2), height: 74, r: Math.min(8, width / 4) }, style: { fill: s.color, stroke: '#ffffff', lineWidth: 2 } }];
+      const children = [{ type: 'rect', shape: { x: a[0] + 1, y: a[1] - 37, width: Math.max(1, width - 2), height: 74, r: Math.min(8, width / 4) }, style: { fill: s.color, stroke: s.colorStatus === 'unknown' ? '#8a99a5' : '#ffffff', lineWidth: 2, lineDash: s.colorStatus === 'unknown' ? [5, 4] : undefined } }];
       const dates = width > 360 ? `${s.start} to ${s.endDate}` : `${s.start.slice(5)} to ${s.endDate.slice(5)}`;
       if (width > 28) children.push({ type: 'text', style: { text: width > 250 ? `${s.id} · ${s.label}\n${dates}` : width > 175 ? `${s.id} · ${s.label}` : s.id,
         x: a[0] + width / 2, y: a[1], align: 'center', verticalAlign: 'middle', font: font(width > 175 ? 19 : 18, true), lineHeight: 26, fill: ink, width: Math.max(1, width - 16), overflow: 'truncate' } });
@@ -169,7 +168,8 @@ export function renderRegimenChart(canvas, data, single = null) {
   return init(canvas, height, { graphic: graphics, grid, xAxis, yAxis, series, tooltip: tooltip(p => {
     if (p.seriesIndex !== 0) return coughTooltip(p, data);
     const s = schemes[p.data[3]];
-    return `${s.id} · ${meds[s.lane].name}\n${s.label}\n${s.start} to ${s.endDate}${s.last ? '\nSelected range boundary; stop date not established' : ''}`;
+    const average = s.dailyAverage === null ? 'Daily average unavailable (missing dose or frequency)' : `Schedule average: ~${Number(s.dailyAverage.toPrecision(4))} ${s.unit}/day${s.colorStatus === 'mixed' ? '\nSimple mean of recorded regimens' : ''}`;
+    return `${s.id} · ${meds[s.lane].name}\n${s.label}\n${average}\n${s.start} to ${s.endDate}${s.last ? '\nSelected range boundary; stop date not established' : ''}`;
   }) });
 }
 export function renderCoughChart(canvas, data) {
